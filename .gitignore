@@ -1,0 +1,42 @@
+# Ignore MOC files
+*.inl
+
+# Ignore Visual Studio files
+*.ncb
+*.vspscc
+*.obj
+*.pdb
+*.idb
+*.embed.manifest
+*.qch
+*.qm
+*.vcproj.*.user
+BuildLog.htm*
+*.suo
+*.opensdf
+*.log
+*.sdf
+*.vcxproj.user
+*.cod
+*.bak
+*.aps
+*.opendb
+*.db
+
+# Ignore any debug/release folders
+Debug/
+Release/
+ReleaseCrtDll/
+ipch/
+objchk_*
+chk_*
+buildchk_*
+objchk_wlh_amd64
+objchk_wlh_x86
+objfre_wlh_amd64
+objfre_wlh_x86
+staging/
+.vs/
+
+# Ignoring Win * Thumbnail Files
+Thumbs.db
