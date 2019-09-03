@@ -10,7 +10,7 @@ class CMemoryDlg : public CDialogEx
 	DECLARE_DYNAMIC(CMemoryDlg)
 
 public:
-	CMemoryDlg(PCTSTR processName, DWORD pid, DWORD baseAddress, CWnd* pParent = NULL);   // standard constructor
+	CMemoryDlg(PCTSTR processName, DWORD pid, ULONGLONG baseAddress, CWnd* pParent = NULL);   // standard constructor
 	virtual ~CMemoryDlg();
 
 // Dialog Data
@@ -31,5 +31,5 @@ private:
     CDumpControl m_lcData;
     CString m_processName;
     DWORD m_processId;
-    DWORD m_baseAddress;
+    ULONGLONG m_baseAddress;
 };

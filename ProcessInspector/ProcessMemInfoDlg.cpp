@@ -244,7 +244,9 @@ BOOL CProcessMemInfoDlg::OnInitDialog()
             break;
         }
 
-        s.Format(_T("%08X"), proc_cur_address);
+        TRACE("%p - %08x\n", mem_basic_info.BaseAddress, mem_basic_info.RegionSize);
+
+        s.Format(_T("%p"), proc_cur_address);
         m_lcMemInfo.InsertItem(nCurIndex, s);
 
         switch (mem_basic_info.State) {
@@ -286,7 +288,7 @@ BOOL CProcessMemInfoDlg::OnInitDialog()
         s.Format(_T("%08X"), mem_basic_info.RegionSize);
         m_lcMemInfo.SetItemText(nCurIndex, SIZE_COLUMN, s);
 
-        s.Format(_T("%08X"), mem_basic_info.BaseAddress);
+        s.Format(_T("%p"), mem_basic_info.BaseAddress);
         m_lcMemInfo.SetItemText(nCurIndex, BASE_COLUMN, s);
 
         nCurIndex++;
@@ -341,7 +343,7 @@ void CProcessMemInfoDlg::OnDblclkMemInfoList(NMHDR *pNMHDR, LRESULT *pResult)
     auto iItem = pNMItemActivate->iItem;
     CString s = m_lcMemInfo.GetItemText(iItem, ADDRESS_COLUMN);
     PTCHAR  endPtr;
-    DWORD address = _tcstoul(s, &endPtr, 16);
+    auto address = _tcstoull(s, &endPtr, 16);
 
     CMemoryDlg dlg(m_processName, m_processId, address);
     dlg.DoModal();

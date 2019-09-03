@@ -12,7 +12,7 @@
 
 IMPLEMENT_DYNAMIC(CMemoryDlg, CDialogEx)
 
-CMemoryDlg::CMemoryDlg(PCTSTR processName, DWORD pid, DWORD baseAddress, CWnd* pParent /*=NULL*/)
+CMemoryDlg::CMemoryDlg(PCTSTR processName, DWORD pid, ULONGLONG baseAddress, CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_MEMORY, pParent), m_processName(processName), m_processId(pid), m_baseAddress(baseAddress)
 {
 
@@ -75,7 +75,7 @@ BOOL CMemoryDlg::OnInitDialog()
         return TRUE;
     }
 
-    PVOID pDataAddress = (PVOID)(DWORD_PTR)m_baseAddress;
+    PVOID pDataAddress = (PVOID)m_baseAddress;
     MEMORY_BASIC_INFORMATION mem_basic_info;
     SIZE_T size = VirtualQueryEx(hProcess, pDataAddress, &mem_basic_info, sizeof(mem_basic_info));
     if (size == 0)

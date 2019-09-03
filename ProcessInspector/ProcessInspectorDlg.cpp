@@ -84,7 +84,7 @@ BOOL SetPrivilege(
 
     if (!LookupPrivilegeValue(
         NULL,            // lookup privilege on local system
-        lpszPrivilege,   // privilege to lookup 
+        lpszPrivilege,   // privilege to lookup
         &luid))        // receives LUID of privilege
     {
         printf("LookupPrivilegeValue error: %u\n", GetLastError());
