@@ -127,6 +127,53 @@ bool FindAndReplace(DWORD dwProcessID, const std::vector<BYTE>& findWhat, const 
 }
 
 
+
+// Knuth–Morris–Pratt algorithm in c++
+int find_substring(std::string str, std::string pattern)
+{
+    // Step 0. Should not be empty string
+    if (str.size() == 0 || pattern.size() == 0)
+        return -1;
+
+    // Step 1. Compute failure function
+    std::vector<int> failure(pattern.size());
+    std::fill(failure.begin(), failure.end(), -1);
+
+    for (int r = 1, l = -1; r < pattern.size(); r++)
+    {
+        while (l != -1 && pattern[l + 1] != pattern[r])
+            l = failure[l];
+
+        // assert( l == -1 || pattern[l+1] == pattern[r]);
+        if (pattern[l + 1] == pattern[r])
+            failure[r] = ++l;
+    }
+
+    // Step 2. Search pattern
+    int tail = -1;
+    for (int i = 0; i < str.size(); i++)
+    {
+        while (tail != -1 && str[i] != pattern[tail + 1])
+            tail = failure[tail];
+
+        if (str[i] == pattern[tail + 1])
+            tail++;
+
+        if (tail == pattern.size() - 1)
+            return i - tail;
+    }
+
+    return -1;
+}
+
+void test_kmp()
+{
+    auto a1 = find_substring("abcd", "abcd");
+    auto a2 = find_substring("abcd", "ab");
+    auto a3 = find_substring("ab", "abcd");
+    auto a4 = find_substring("ababc", "abc");
+}
+
 // CProcessMemInfoDlg dialog
 
 IMPLEMENT_DYNAMIC(CProcessMemInfoDlg, CDialogEx)

@@ -60,7 +60,7 @@ BOOL CMemoryDlg::OnInitDialog()
 
     // Add extra initialization here
     CString strTitle;
-    strTitle.Format(_T("Memory: %s - pid %d - %08x"), m_processName, m_processId, m_baseAddress);
+    strTitle.Format(_T("Memory: %s - pid %d - %p"), m_processName, m_processId, m_baseAddress);
     SetWindowText(strTitle);
 
     HANDLE hProcess = OpenProcess(
