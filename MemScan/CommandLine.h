@@ -3,6 +3,18 @@
 #include <string>
 #include <map>
 
+/*
+class CommandLine is used to parse the command line and collect the arguments
+Usage:
+    exists: check if the argument is existing
+    get_value: get the value for the given argument
+Example:
+    the_app_exe param1 param2=1
+    result:
+    CommandLine.get_value["application_path"] returns "[full_path]\the_app_exe"
+    CommandLine.exists["param1"] returns true
+    CommandLine.get_value["param2"] returns "1"
+*/
 class CommandLine
 {
 public:
