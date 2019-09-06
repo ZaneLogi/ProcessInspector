@@ -158,7 +158,11 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="DumpMemory.cpp" />
+    <ClCompile Include="DumpProcessMemInfo.cpp" />
+    <ClCompile Include="FindAndReplace.cpp" />
     <ClCompile Include="MemScan.cpp" />
+    <ClCompile Include="Search.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
