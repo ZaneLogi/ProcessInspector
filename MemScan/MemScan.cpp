@@ -66,7 +66,31 @@ DWORD FindProcessId(const std::string& process_name)
     return found_pid;
 }
 
+/*
+usage examples:
 
+parameters:
+process=xxx => xxx is the process name
+pid=xxx     => xxx is the pid of the process, it would be get from the task mamanger
+choose either 'process' or 'pid' for the specific process
+
+init=xxx    => xxx is the search target
+next=xxx    => xxx is the search target after the first init search
+type=xxx    => xxx describes what the format of the search target, it would be int8, uint8, int16, uint16, int32, uint32, data
+if it is 'data', it means the search target is HEX data array
+
+dump=xxx    => xxx is the memory address for dump
+size=xxx    => xxx is the size of the memory for dump
+
+Dump the information of the memory blocks for the specific process
+memscan process=xxx
+
+Search the specific data
+memscan process=xxx init=12 type=int8
+memscan process=xxx next=32 type=int8
+
+memscan dump=000123456 size=0x200
+*/
 int main(int argc, char** argv)
 {
     CommandLine cl(argc, argv);
