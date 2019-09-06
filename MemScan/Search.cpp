@@ -50,6 +50,14 @@ std::vector<uint8_t> get_pattern(const std::string& data, const std::string& typ
         pattern.push_back(((uint8_t*)&value)[2]);
         pattern.push_back(((uint8_t*)&value)[3]);
     }
+    else if (type == "data")
+    {
+        for (int i = 0; i < data.length(); i += 2)
+        {
+            uint8_t value = (uint8_t)strtoul(data.substr(i, 2).c_str(), &endptr, 16);
+            pattern.push_back(value);
+        }
+    }
     else
     {
         // treat it as string
