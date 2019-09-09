@@ -350,7 +350,7 @@ void CProcessInspectorDlg::PopulateProcesses()
             FALSE, pid);
         if (NULL == hProcess)
         {
-            TRACE(_T("Failed to call OpenProces(), pid=0x%08x, err=0x%08x\r\n"), pid, GetLastError());
+            TRACE(_T("Failed to call OpenProces(), pid=0x%08x, err=%s\r\n"), pid, GetErrorString(_T("OpenProcess")));
             continue;
         }
 
