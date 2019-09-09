@@ -29,7 +29,7 @@ CDumpControl::CDumpControl()
 	m_nMarkStart = -1;
 	m_nMarkEnd = -1;
 
-	m_dwStartAddress = 0;
+    m_pvStartAddress = nullptr;
 
 	m_bMouseCaptured = false;
 
@@ -62,7 +62,7 @@ END_MESSAGE_MAP()
 /////////////////////////////////////////////////////////////////////////////
 // CDumpControl message handlers
 
-void CDumpControl::PreSubclassWindow() 
+void CDumpControl::PreSubclassWindow()
 {
 	// TODO: Add your specialized code here and/or call the base class
 	CListCtrl::PreSubclassWindow();
@@ -87,7 +87,7 @@ void CDumpControl::PreSubclassWindow()
 	InsertColumn( 3, _T("") );
 
 	SetFont( CFont::FromHandle( (HFONT)GetStockObject(ANSI_FIXED_FONT) ), FALSE );
-	
+
 	SetColumnWidth( 0, LVSCW_AUTOSIZE_USEHEADER );
 	SetColumnWidth( 1, LVSCW_AUTOSIZE_USEHEADER );
 	SetColumnWidth( 2, LVSCW_AUTOSIZE_USEHEADER );
@@ -109,7 +109,7 @@ void CDumpControl::EnableEdit( bool bEnable )
 void CDumpControl::Add(PBYTE pData, DWORD dwLength)
 {
 	int nItemCount = GetItemCount();
-    
+
 	CString strTmp, strHex, strChar;
 	int nRemained = (m_nBytesAdded % ITEMS_PER_LINE);
 	if ( nRemained != 0 ) {
@@ -139,7 +139,7 @@ void CDumpControl::Add(PBYTE pData, DWORD dwLength)
 	}
 
 	while ( dwLength > 0 ) {
-		strTmp.Format( _T("%08X"), nItemCount * ITEMS_PER_LINE + m_dwStartAddress );
+		strTmp.Format( _T("%p"), (PBYTE)m_pvStartAddress + nItemCount * ITEMS_PER_LINE );
 		InsertItem( nItemCount, strTmp );
 
 		strHex.Empty();
@@ -185,14 +185,14 @@ void CDumpControl::Add(PBYTE pData, DWORD dwLength)
 	m_nAscPartLeft = (m_nAscPartBoundWidth - m_nAscPartTextWidth)/2;
 }
 
-void CDumpControl::SetStartAddress( DWORD dwAddress )
+void CDumpControl::SetStartAddress( PVOID pvAddress )
 {
-	m_dwStartAddress = dwAddress;
+    m_pvStartAddress = pvAddress;
 	CString strTmp;
 	int nItemCount = GetItemCount();
 	for ( int i = 0; i < nItemCount; i++ )
 	{
-        strTmp.Format( _T("%08X"), i * ITEMS_PER_LINE + m_dwStartAddress );
+        strTmp.Format( _T("%p"), (PBYTE)m_pvStartAddress + i * ITEMS_PER_LINE );
 		SetItemText( i, 0, strTmp );
 	}
 }
@@ -335,7 +335,7 @@ int CDumpControl::GetItemIndex( CPoint hit, bool bScreenCoord )
 			}
 		}
 	}
-	
+
 	return nHitIndex;
 }
 
@@ -557,7 +557,7 @@ int CDumpControl::FindBlock( PUCHAR pucTarget, int nSize, int nStart, BOOL bSear
 	while ( nStart >= 0 && nStart < m_nBytesAdded )
 	{
 		int nIndex = FindChr( *pucTarget, nStart, bSearchDown );
-		
+
 		if ( nIndex < 0 )
 			break;
 		else if ( nSize == GetData( auc, nSize, nIndex ) && 0 == memcmp( pucTarget, auc, nSize ) )
@@ -660,21 +660,21 @@ void CDumpControl::CopyToClipboard(DWORD dwFlags)
 
 	int nLen = strText.GetLength();
 
-	// Allocate a global memory object for the text. 
-	HGLOBAL hglbCopy = GlobalAlloc(GMEM_MOVEABLE, ((nLen+1) * sizeof(TCHAR))); 
-	if (hglbCopy == NULL) { 
+	// Allocate a global memory object for the text.
+	HGLOBAL hglbCopy = GlobalAlloc(GMEM_MOVEABLE, ((nLen+1) * sizeof(TCHAR)));
+	if (hglbCopy == NULL) {
 		CloseClipboard();
 		AfxMessageBox( _T("Failed to allocate memory!") );
-        return; 
+        return;
 	}
-	
-	// Lock the handle and copy the text to the buffer. 
+
+	// Lock the handle and copy the text to the buffer.
 	LPTSTR lptstrCopy = (LPTSTR)GlobalLock(hglbCopy);
 	CopyMemory( lptstrCopy, strText.GetBuffer(nLen), (nLen * sizeof(TCHAR)) );
-    lptstrCopy[nLen] = (TCHAR)0;    // null character 
+    lptstrCopy[nLen] = (TCHAR)0;    // null character
 	GlobalUnlock(hglbCopy);
-	
-	// Place the handle on the clipboard. 
+
+	// Place the handle on the clipboard.
 	UINT uiFormat = (sizeof(TCHAR) == sizeof(char))
 		? CF_TEXT : CF_UNICODETEXT;
 
@@ -776,7 +776,7 @@ void CDumpControl::InsertData( int nStart, BYTE ucVal )
 		int nLine = m_nBytesAdded / 16;
 
 		CString strTmp;
-		strTmp.Format( _T("%08X"), nLine * ITEMS_PER_LINE + m_dwStartAddress );
+		strTmp.Format( _T("%p"), (PBYTE)m_pvStartAddress + nLine * ITEMS_PER_LINE );
 		InsertItem( nLine, strTmp );
 		SetItemText( nLine, 1, _T("   ") );
 		SetItemText( nLine, 2, _T(" ") );

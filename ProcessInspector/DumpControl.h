@@ -38,7 +38,7 @@ public:
 // Attributes
 public:
 	TEXTMETRIC m_tm;
-	DWORD m_dwStartAddress;
+	PVOID m_pvStartAddress;
 	int m_nHexPartUnitWidth;
 	int m_nHexPartTextWidth;
 	int m_nHexPartBoundWidth;
@@ -80,7 +80,7 @@ public:
 	virtual ~CDumpControl();
 	void Empty();
 	void Add( PBYTE pData, DWORD dwLength );
-	void SetStartAddress( DWORD dwAddress );
+	void SetStartAddress( PVOID pvAddress );
 	int  GetData( DWORD dwIndex ) const;
 	int  GetData( PBYTE pBuf, DWORD dwSize, int nStart = 0 ) const;
 	int  GetDataLength() const;
