@@ -136,11 +136,12 @@ void CMemoryDlg::UpdatePage()
     s.Format(_T("%d / %d"), m_current_page + 1, m_total_pages);
     m_page_info.SetWindowText(s);
 
+    m_lcData.SetRedraw(FALSE);
     m_lcData.Empty();
     m_lcData.Add(m_buffer.data() + m_current_page * BYTES_PER_PAGE,
         (DWORD)(m_current_page == m_total_pages - 1 ? m_buffer.size() - m_current_page * BYTES_PER_PAGE : BYTES_PER_PAGE));
     m_lcData.SetStartAddress(m_pbStartAddress + m_current_page * BYTES_PER_PAGE);
-
+    m_lcData.SetRedraw(TRUE);
 }
 
 
