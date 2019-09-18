@@ -30,6 +30,9 @@
     <ClInclude Include="MsgHookProc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="kiero.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -42,6 +45,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="MsgHookProc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="kiero.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dllmain_kiero.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dllmain_d3d.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

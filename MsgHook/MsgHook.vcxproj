@@ -100,6 +100,16 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>REM goto :end
+
+REM for remote debug
+set remote=\\172.23.154.222\ShareFolder\$(PlatformTarget)\
+copy $(TargetPath) %remote% /Y
+
+:end
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -112,6 +122,16 @@
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>REM goto :end
+
+REM for remote debug
+set remote=\\172.23.154.222\ShareFolder\$(PlatformTarget)\
+copy $(TargetPath) %remote% /Y
+
+:end
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -128,6 +148,16 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>REM goto :end
+
+REM for remote debug
+set remote=\\172.23.154.222\ShareFolder\$(PlatformTarget)\
+copy $(TargetPath) %remote% /Y
+
+:end
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -144,6 +174,16 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>REM goto :end
+
+REM for remote debug
+set remote=\\172.23.154.222\ShareFolder\$(PlatformTarget)\
+copy $(TargetPath) %remote% /Y
+
+:end
+</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />

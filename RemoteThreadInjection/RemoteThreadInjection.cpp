@@ -119,7 +119,7 @@ int main()
 {
     EnablePrivilege(TRUE);
 
-    HWND hwnd = FindWindow(NULL, _T("Direct3D 11 Application"));
+    HWND hwnd = FindWindow(NULL, _T("Our Direct3D Program"));
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
     HANDLE process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);

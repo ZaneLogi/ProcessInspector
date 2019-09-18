@@ -44,6 +44,7 @@ FileLogger::~FileLogger()
 void FileLogger::onLog(const std::string& text)
 {
     m_file << text;
+    m_file.flush();
 }
 
 

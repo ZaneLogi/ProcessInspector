@@ -83,27 +83,49 @@ HHOOK InjectDll(DWORD pid, LPCTSTR dllPath)
     return hook;
 }
 
+
+
+
+HHOOK SetHook(LPCTSTR injected_dll_name, LPCTSTR application_name = nullptr)
+{
+    DWORD pid = 0;
+
+    if (application_name != nullptr)
+    {
+        HWND hwnd = FindWindow(NULL, application_name);
+        if (hwnd == NULL)
+        {
+            printf("Failed to find the windows, code = %u\n", GetLastError());
+            return nullptr;
+        }
+
+        GetWindowThreadProcessId(hwnd, &pid);
+    }
+    else
+    {
+        pid = 0; // global hook
+    }
+
+    HHOOK hook = InjectDll(pid, injected_dll_name);
+    if (hook == NULL)
+        return nullptr;
+
+    return hook;
+}
+
+
 int main()
 {
     EnablePrivilege(TRUE);
-
-    HWND hwnd = FindWindow(NULL, _T("Direct3D 11 Application"));
-    if (hwnd == NULL)
+    // target name: "Direct3D 11 Application"  "Our Direct3D Program"
+    auto hook = SetHook(_T("InjectionDll.dll"), _T("Our Direct3D Program"));
+    if (hook != nullptr)
     {
-        printf("Failed to find the windows, code = %u\n", GetLastError());
-        return 1;
+        printf("Please hit return/enter key to unload DLL.\n");
+        getchar();
+
+        UnhookWindowsHookEx(hook);
     }
-    DWORD pid;
-    GetWindowThreadProcessId(hwnd, &pid);
-
-    HHOOK hook = InjectDll(pid, _T("InjectionDll.dll"));
-    if (hook == NULL)
-        return 2;
-
-    printf("Please hit return/enter key to unload DLL.\n");
-    getchar();
-
-    UnhookWindowsHookEx(hook);
 
     return 0;
 }

@@ -11,9 +11,14 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MemScan", "MemScan\MemScan.
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MsgHook", "MsgHook\MsgHook.vcxproj", "{64A9EE48-4171-4655-A641-95BB3BC259DE}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "InjectionDLL", "MsgHookDLL\MsgHookDLL.vcxproj", "{A4D17F92-FCE9-406C-9970-2529BB986497}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "InjectionDLL", "InjectionDLL\InjectionDLL.vcxproj", "{A4D17F92-FCE9-406C-9970-2529BB986497}"
+	ProjectSection(ProjectDependencies) = postProject
+		{F142A341-5EE0-442D-A15F-98AE9B48DBAE} = {F142A341-5EE0-442D-A15F-98AE9B48DBAE}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RemoteThreadInjection", "RemoteThreadInjection\RemoteThreadInjection.vcxproj", "{C8C6D2A7-9092-4387-8A64-2AD0B717A3FB}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libMinHook", "minhook_build\libMinHook.vcxproj", "{F142A341-5EE0-442D-A15F-98AE9B48DBAE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -71,6 +76,14 @@ Global
 		{C8C6D2A7-9092-4387-8A64-2AD0B717A3FB}.Release|x64.Build.0 = Release|x64
 		{C8C6D2A7-9092-4387-8A64-2AD0B717A3FB}.Release|x86.ActiveCfg = Release|Win32
 		{C8C6D2A7-9092-4387-8A64-2AD0B717A3FB}.Release|x86.Build.0 = Release|Win32
+		{F142A341-5EE0-442D-A15F-98AE9B48DBAE}.Debug|x64.ActiveCfg = Debug|x64
+		{F142A341-5EE0-442D-A15F-98AE9B48DBAE}.Debug|x64.Build.0 = Debug|x64
+		{F142A341-5EE0-442D-A15F-98AE9B48DBAE}.Debug|x86.ActiveCfg = Debug|Win32
+		{F142A341-5EE0-442D-A15F-98AE9B48DBAE}.Debug|x86.Build.0 = Debug|Win32
+		{F142A341-5EE0-442D-A15F-98AE9B48DBAE}.Release|x64.ActiveCfg = Release|x64
+		{F142A341-5EE0-442D-A15F-98AE9B48DBAE}.Release|x64.Build.0 = Release|x64
+		{F142A341-5EE0-442D-A15F-98AE9B48DBAE}.Release|x86.ActiveCfg = Release|Win32
+		{F142A341-5EE0-442D-A15F-98AE9B48DBAE}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

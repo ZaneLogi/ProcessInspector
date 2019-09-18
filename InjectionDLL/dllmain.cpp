@@ -45,7 +45,7 @@ public:
 #endif
 #pragma pack(pop)
 
-void hook(void* originalFunction, void* hookFunction, BYTE* oldCode)
+static void hook(void* originalFunction, void* hookFunction, BYTE* oldCode)
 {
     JmpCode code((uintptr_t)originalFunction, (uintptr_t)hookFunction);
     DWORD oldProtect, oldProtect2;
@@ -56,7 +56,7 @@ void hook(void* originalFunction, void* hookFunction, BYTE* oldCode)
 }
 
 
-void unhook(void* originalFunction, BYTE* oldCode)
+static void unhook(void* originalFunction, BYTE* oldCode)
 {
     DWORD oldProtect, oldProtect2;
     VirtualProtect(originalFunction, sizeof(JmpCode), PAGE_EXECUTE_READWRITE, &oldProtect);
@@ -76,28 +76,37 @@ BOOL WINAPI MyTerminateProcess(HANDLE hProcess, UINT uExitCode)
 }
 
 
-
+#if 0
 
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved)
 {
     TCHAR processPath[MAX_PATH];
-    TCHAR msg[MAX_PATH + 20];
 
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
         GetModuleFileName(GetModuleHandle(NULL), processPath, MAX_PATH);
-        _tcscpy_s(msg, _T("Inject to the process "));
-        _tcscat_s(msg, processPath);
-        MessageBox(NULL, msg, _T(""), MB_OK);
+
+        MessageBox(NULL, _T("DLL injection"), processPath, MB_OK);
 
         hook(GetProcAddress(GetModuleHandle(_T("kernel32.dll")), "TerminateProcess"), MyTerminateProcess, terminateProcessOldCode);
+
+        if (GetModuleHandle(_T("d3d9.dll")))
+        {
+            MessageBox(NULL, _T("has d3d9.dll"), processPath, MB_OK);
+        }
+        if (GetModuleHandle(_T("d3d11.dll")))
+        {
+            MessageBox(NULL, _T("has d3d11.dll"), processPath, MB_OK);
+        }
+
         break;
 
     case DLL_PROCESS_DETACH:
-        MessageBox(NULL, _T("DLL unload"), _T(""), MB_OK);
+        GetModuleFileName(GetModuleHandle(NULL), processPath, MAX_PATH);
+        MessageBox(NULL, _T("DLL unload"), processPath, MB_OK);
 
         unhook(GetProcAddress(GetModuleHandle(_T("kernel32.dll")), "TerminateProcess"), terminateProcessOldCode);
         break;
@@ -109,3 +118,4 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     return TRUE;
 }
 
+#endif

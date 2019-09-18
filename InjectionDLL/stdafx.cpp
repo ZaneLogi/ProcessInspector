@@ -8,4 +8,4 @@
 // and not in this file
 
 
-//FileLogger gLogger("d:\\msg_hook.log");
+FileLogger gLogger("\\InjectionDLL.log");
