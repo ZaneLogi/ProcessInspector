@@ -119,7 +119,9 @@ int main()
 {
     EnablePrivilege(TRUE);
 
-    HWND hwnd = FindWindow(NULL, _T("Our Direct3D Program"));
+    const auto application_name = _T("Direct3D 11 Application");
+    //const auto application_name = _T("Our Direct3D Program");
+    HWND hwnd = FindWindow(NULL, application_name);
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
     HANDLE process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
