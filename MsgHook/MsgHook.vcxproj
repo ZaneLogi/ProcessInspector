@@ -101,7 +101,8 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>REM goto :end
+      <Command>REM 
+goto :end
 
 REM for remote debug
 set remote=\\172.23.154.222\ShareFolder\$(PlatformTarget)\
@@ -123,7 +124,8 @@ copy $(TargetPath) %remote% /Y
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>REM goto :end
+      <Command>REM 
+goto :end
 
 REM for remote debug
 set remote=\\172.23.154.222\ShareFolder\$(PlatformTarget)\
@@ -149,7 +151,8 @@ copy $(TargetPath) %remote% /Y
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>REM goto :end
+      <Command>REM 
+goto :end
 
 REM for remote debug
 set remote=\\172.23.154.222\ShareFolder\$(PlatformTarget)\
@@ -175,7 +178,8 @@ copy $(TargetPath) %remote% /Y
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>REM goto :end
+      <Command>REM 
+goto :end
 
 REM for remote debug
 set remote=\\172.23.154.222\ShareFolder\$(PlatformTarget)\

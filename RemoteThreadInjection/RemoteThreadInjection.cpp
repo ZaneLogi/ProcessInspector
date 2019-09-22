@@ -115,20 +115,33 @@ HMODULE GetRemoteModuleHandle(DWORD pid, LPCTSTR moduleName)
 
 
 
-int main()
+int main(int argc, char** argv)
 {
+    if (argc < 2)
+    {
+        printf("Syntax: RemoteThreadInjection [Window Title]\n");
+        return -1;
+    }
+
     EnablePrivilege(TRUE);
 
-    const auto application_name = _T("Direct3D 11 Application");
+    const auto application_name = argv[1];
+    //const auto application_name = _T("Direct3D 11 Application");
     //const auto application_name = _T("Our Direct3D Program");
-    HWND hwnd = FindWindow(NULL, application_name);
+    HWND hwnd = FindWindowA(NULL, application_name);
+    if (hwnd == nullptr)
+    {
+        printf("Can't find the window '%s'!!!\n", application_name);
+        return -2;
+    }
+
     DWORD pid;
     GetWindowThreadProcessId(hwnd, &pid);
     HANDLE process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
     if (process == NULL)
     {
         printf("Failed to call OpenProcess, code = %u\n", GetLastError());
-        return 1;
+        return -3;
     }
 
     // InjectionDll.dll should be at the same folder of this process
@@ -140,7 +153,7 @@ int main()
     if (remoteModule == NULL)
     {
         CloseHandle(process);
-        return 2;
+        return -4;
     }
 
 #ifdef _WIN64
@@ -157,7 +170,7 @@ int main()
     if (!FreeRemoteDll(process, remoteModule))
     {
         CloseHandle(process);
-        return 3;
+        return -5;
     }
 
     CloseHandle(process);
