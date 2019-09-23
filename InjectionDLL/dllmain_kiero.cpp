@@ -37,7 +37,7 @@ long __stdcall hkD3D9EndScene(LPDIRECT3DDEVICE9 pDevice)
 typedef long (__stdcall* IDXGISwapChain_Present)(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT Flags);
 static IDXGISwapChain_Present originalD3D11Present = nullptr;
 
-#define D3DHOOK_SAMPLE_INDEX 2
+#define D3DHOOK_SAMPLE_INDEX 1
 
 #if D3DHOOK_SAMPLE_INDEX == 1
 
@@ -49,11 +49,10 @@ struct VertexType
 
 struct MatrixBufferType
 {
-    XMMATRIX world;
-    XMMATRIX view;
-    XMMATRIX projection;
+    XMMATRIX ortho;
 };
 
+static bool g_screen_size_changed = false;
 static int g_screen_width = 0;
 static int g_screen_height = 0;
 static const int g_rect_width = 256;
@@ -116,7 +115,7 @@ bool init_d3d_states(ID3D11Device* d3d_device)
 bool init_d3d_buffers(ID3D11Device* d3d_device)
 {
     VertexType vertices[g_vertex_count];
-    unsigned long indices[g_index_count];
+    unsigned long indices[g_index_count] = { 0, 1, 2, 3, 4, 5 };
     D3D11_BUFFER_DESC vertexBufferDesc, indexBufferDesc;
     D3D11_SUBRESOURCE_DATA vertexData, indexData;
     HRESULT result;
@@ -189,38 +188,37 @@ void output_shader_error_message(ID3D10Blob* errorMessage)
     errorMessage = nullptr;
 }
 
-const char VertexShaderText[] =
-"\
-cbuffer MatrixBuffer { matrix worldMatrix; matrix viewMatrix; matrix projectionMatrix; };\n\
-struct VertexInputType { float4 position : POSITION; float4 color : COLOR; };\n\
-struct PixelInputType { float4 position : SV_POSITION; float4 color : COLOR; };\n\
-PixelInputType ColorVertexShader(VertexInputType input)\n\
-{\n\
-    PixelInputType output;\n\
-\n\
-    input.position.w = 1.0f;\n\
-\n\
-    output.position = mul(input.position, worldMatrix);\n\
-    output.position = mul(output.position, viewMatrix);\n\
-    output.position = mul(output.position, projectionMatrix);\n\
-\n\
-    output.color = input.color;\n\
-\n\
-    return output;\n\
-}\0";
+const char ShaderText[] = R"(
+cbuffer MatrixBuffer
+{
+    matrix orthoMatrix;
+};
+struct VertexInputType
+{
+    float4 position : POSITION;
+    float4 color : COLOR;
+};
+struct PixelInputType
+{
+    float4 position : SV_POSITION;
+    float4 color : COLOR;
+};
+PixelInputType ColorVertexShader(VertexInputType input)
+{
+    PixelInputType output;
+    input.position.w = 1.0f;
+    output.position = mul(input.position, orthoMatrix);
+    output.color = input.color;
+    return output;
+}
+float4 ColorPixelShader(PixelInputType input) : SV_TARGET
+{
+    return input.color;
+}
+)";
 
-const int VertexShaderTextLength = sizeof(VertexShaderText);
+const int ShaderTextLength = sizeof(ShaderText);
 
-
-const char PixelShaderText[] =
-"\
-struct PixelInputType { float4 position : SV_POSITION; float4 color : COLOR; };\n\
-float4 ColorPixelShader(PixelInputType input) : SV_TARGET\n\
-{\n\
-    return input.color;\n\
-}\0";
-
-const int PixelShaderTextLength = sizeof(PixelShaderText);
 
 bool init_d3d_shaders(ID3D11Device* d3d_device)
 {
@@ -233,7 +231,7 @@ bool init_d3d_shaders(ID3D11Device* d3d_device)
     D3D11_BUFFER_DESC matrixBufferDesc;
 
     // Compile the vertex shader code.
-    result = D3DCompile(VertexShaderText, VertexShaderTextLength,
+    result = D3DCompile(ShaderText, ShaderTextLength,
         NULL, NULL, NULL,
         "ColorVertexShader", "vs_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0,
         &vertexShaderBuffer, &errorMessage);
@@ -253,7 +251,7 @@ bool init_d3d_shaders(ID3D11Device* d3d_device)
     }
 
     // Compile the pixel shader code.
-    result = D3DCompile(PixelShaderText, PixelShaderTextLength,
+    result = D3DCompile(ShaderText, ShaderTextLength,
         NULL, NULL, NULL, "ColorPixelShader", "ps_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0,
         &pixelShaderBuffer, &errorMessage);
     if (FAILED(result))
@@ -362,7 +360,7 @@ bool update_buffers(ID3D11DeviceContext* device_context, int position_x, int pos
 
     // If the position we are rendering this bitmap to has not changed then don't update the vertex buffer since it
     // currently has the correct parameters.
-    if ((position_x == g_previous_x) && (position_y == g_previous_y))
+    if ((position_x == g_previous_x) && (position_y == g_previous_y) && !g_screen_size_changed)
     {
         return true;
     }
@@ -385,7 +383,7 @@ bool update_buffers(ID3D11DeviceContext* device_context, int position_x, int pos
     // Calculate the screen coordinates of the bottom of the bitmap.
     bottom = top - (float)g_rect_height;
 
-    const float Z = 100;
+    const float Z = 1.0f;
 
     // Load the vertex array with data.
     // First triangle.
@@ -451,19 +449,12 @@ bool render_buffers(ID3D11DeviceContext* device_context)
 
 bool set_shader_parameters(
     ID3D11DeviceContext* device_context,
-    const XMMATRIX& worldMatrix,
-    const XMMATRIX& viewMatrix,
-    const XMMATRIX& projectionMatrix)
+    const XMMATRIX& orthoMatrix)
 {
     HRESULT result;
     D3D11_MAPPED_SUBRESOURCE mappedResource;
     MatrixBufferType* dataPtr;
     unsigned int bufferNumber;
-
-    // Transpose the matrices to prepare them for the shader.
-    auto worldMatrix1 = XMMatrixTranspose(worldMatrix);
-    auto viewMatrix1 = XMMatrixTranspose(viewMatrix);
-    auto projectionMatrix1 = XMMatrixTranspose(projectionMatrix);
 
     // Lock the constant buffer so it can be written to.
     result = device_context->Map(g_matrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
@@ -477,9 +468,7 @@ bool set_shader_parameters(
     dataPtr = (MatrixBufferType*)mappedResource.pData;
 
     // Copy the matrices into the constant buffer.
-    dataPtr->world = worldMatrix1;
-    dataPtr->view = viewMatrix1;
-    dataPtr->projection = projectionMatrix1;
+    dataPtr->ortho = XMMatrixTranspose(orthoMatrix);;
 
     // Unlock the constant buffer.
     device_context->Unmap(g_matrixBuffer, 0);
@@ -510,17 +499,12 @@ bool render(ID3D11DeviceContext* device_context)
 {
     device_context->OMSetDepthStencilState(g_depthDisabledStencilState, 1);
 
-    auto world_matrix  = XMMatrixIdentity();
-
-    XMFLOAT3 up(0.0f, 1.0f, 0.0f), position(0.0f, 0.0f, -100.0f), lookAt(0.0f, 0.0f, 0.0f);
-    auto view_matrix = XMMatrixLookAtLH(XMLoadFloat3(&position), XMLoadFloat3(&lookAt), XMLoadFloat3(&up));
-
-    auto ortho_matrix = XMMatrixOrthographicLH((float)g_screen_width, (float)g_screen_height, 1.0f, 1000.0f);
+    auto ortho_matrix = XMMatrixOrthographicLH((float)g_screen_width, (float)g_screen_height, 0.0f, 1.0f);
 
     update_buffers(device_context, 0, 0);
     render_buffers(device_context);
 
-    set_shader_parameters(device_context, world_matrix, view_matrix, ortho_matrix);
+    set_shader_parameters(device_context, ortho_matrix);
     render_shader(device_context, g_index_count);
 
     device_context->OMSetDepthStencilState(g_depthStencilState, 1);
@@ -535,8 +519,6 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, U
 #if 1
     static bool init = false;
     static BOOL windowed = true;
-    static ID3D11RenderTargetView* pRenderTargetView = nullptr;
-    static D3D11_VIEWPORT pViewports[D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE]{ 0 };
 
     static ID3D11Device* pPreviousDevice = nullptr;
 
@@ -570,33 +552,13 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, U
 
             g_screen_width = dscd.BufferDesc.Width;
             g_screen_height = dscd.BufferDesc.Height;
+            g_screen_size_changed = true;
             windowed = dscd.Windowed;
 
             init_d3d_resources(pDevice);
 
-            pDeviceContext->OMGetRenderTargets(1, &pRenderTargetView, nullptr);
-            if (!pRenderTargetView)
-            {
-                LOG << "no render target view\n";
-            }
-
-            UINT numViewports = D3D11_VIEWPORT_AND_SCISSORRECT_OBJECT_COUNT_PER_PIPELINE;
-            pDeviceContext->RSGetViewports(&numViewports, pViewports);
-            if (!numViewports || !pViewports[0].Width)
-            {
-                LOG << "no viewports\n";
-
-                // Setup viewport
-                pViewports[0].Width = (float)800;
-                pViewports[0].Height = (float)600;
-                pViewports[0].MinDepth = 0.0f;
-                pViewports[0].MaxDepth = 1.0f;
-
-                // Set viewport to context
-                pDeviceContext->RSSetViewports(1, pViewports);
-            }
-
             pPreviousDevice = pDevice;
+
         }
     }
     else
@@ -611,6 +573,11 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, U
             g_screen_width = dscd.BufferDesc.Width;
             g_screen_height = dscd.BufferDesc.Height;
             windowed = dscd.Windowed;
+            g_screen_size_changed = true;
+        }
+        else
+        {
+            g_screen_size_changed = false;
         }
     }
 #endif
@@ -622,8 +589,6 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, U
 
     if (SUCCEEDED(hr))
     {
-        pDeviceContext->OMSetRenderTargets(1, &pRenderTargetView, nullptr);
-        pDeviceContext->RSSetViewports(1, pViewports);
         render(pDeviceContext);
     }
 
