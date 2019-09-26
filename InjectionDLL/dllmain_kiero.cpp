@@ -49,6 +49,9 @@ static bool g_screen_size_changed = false;
 static int g_screen_width = 0;
 static int g_screen_height = 0;
 
+#include "Text.h"
+Text g_text;
+
 
 
 
@@ -79,6 +82,24 @@ public:
         d3d_dev_context->OMSetDepthStencilState(m_oldDepthStencilState, m_odlStencilRef);
     }
 
+    void EnableAlphaBlendState(ID3D11DeviceContext* d3d_dev_context)
+    {
+        d3d_dev_context->OMGetBlendState(&m_oldBlendState, m_oldBlendFactor, &m_oldSampleMask);
+
+        float blendFactor[4];
+        blendFactor[0] = 0.0f;
+        blendFactor[1] = 0.0f;
+        blendFactor[2] = 0.0f;
+        blendFactor[3] = 0.0f;
+
+        d3d_dev_context->OMSetBlendState(m_alphaEnableBlendingState, blendFactor, 0xffffffff);
+    }
+
+    void RestoreBlendState(ID3D11DeviceContext* d3d_dev_context)
+    {
+        d3d_dev_context->OMSetBlendState(m_oldBlendState, m_oldBlendFactor, m_oldSampleMask);
+    }
+
 private:
     bool InitD3DStates(ID3D11Device* d3d_dev)
     {
@@ -107,6 +128,24 @@ private:
             return false;
         }
 
+        D3D11_BLEND_DESC blendStateDescription;
+        ZeroMemory(&blendStateDescription, sizeof(D3D11_BLEND_DESC));
+        blendStateDescription.RenderTarget[0].BlendEnable = TRUE;
+        blendStateDescription.RenderTarget[0].SrcBlend = D3D11_BLEND_ONE;
+        blendStateDescription.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+        blendStateDescription.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+        blendStateDescription.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+        blendStateDescription.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_ZERO;
+        blendStateDescription.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+        blendStateDescription.RenderTarget[0].RenderTargetWriteMask = 0x0f;
+
+        hr = d3d_dev->CreateBlendState(&blendStateDescription, &m_alphaEnableBlendingState);
+        if (FAILED(hr))
+        {
+            return false;
+        }
+
+
         return true;
     }
 
@@ -114,6 +153,11 @@ private:
     ID3D11DepthStencilState*    m_oldDepthStencilState = nullptr;
     UINT                        m_odlStencilRef;
     ID3D11DepthStencilState*    m_depthDisabledStencilState = nullptr;
+
+    ID3D11BlendState*           m_oldBlendState = nullptr;
+    FLOAT                       m_oldBlendFactor[4];
+    UINT                        m_oldSampleMask;
+    ID3D11BlendState*           m_alphaEnableBlendingState = nullptr;
 };
 
 class RectangleModel
@@ -587,11 +631,13 @@ static RectangleShader g_shader;
 
 
 
-bool init_d3d_resources(ID3D11Device* d3d_device)
+bool init_d3d_resources(ID3D11Device* d3d_device, ID3D11DeviceContext* d3d_dev_context)
 {
     g_d3d11core.Init(d3d_device);
     g_model.Init(d3d_device);
     g_shader.Init(d3d_device);
+
+    g_text.initialize(d3d_device, d3d_dev_context, NULL, g_screen_width, g_screen_height);
     return true;
 }
 
@@ -599,11 +645,15 @@ bool render(ID3D11DeviceContext* device_context)
 {
     g_d3d11core.DisableDepthStencilState(device_context);
 
-    auto ortho_matrix = XMMatrixOrthographicLH((float)g_screen_width, (float)g_screen_height, 0.0f, 1.0f);
+    auto ortho_matrix = XMMatrixOrthographicLH((float)g_screen_width, (float)g_screen_height, 1.0f, 1000.0f);
 
     g_model.Render(device_context, 0, 0, g_screen_size_changed);
 
     g_shader.Render(device_context, g_model.GetIndexCount(), ortho_matrix);
+
+    g_d3d11core.EnableAlphaBlendState(device_context);
+    g_text.render(device_context, ortho_matrix);
+    g_d3d11core.RestoreBlendState(device_context);
 
     g_d3d11core.RestoreDepthStencilState(device_context);
     return true;
@@ -651,7 +701,7 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, U
             g_screen_size_changed = true;
             windowed = dscd.Windowed;
 
-            init_d3d_resources(pDevice);
+            init_d3d_resources(pDevice, pDeviceContext);
 
             pPreviousDevice = pDevice;
 
