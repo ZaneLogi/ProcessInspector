@@ -41,154 +41,286 @@ static IDXGISwapChain_Present originalD3D11Present = nullptr;
 
 #if D3DHOOK_SAMPLE_INDEX == 1
 
-struct VertexType
-{
-    XMFLOAT3 position;
-    XMFLOAT4 color;
-};
 
-struct MatrixBufferType
-{
-    XMMATRIX ortho;
-};
+
+
 
 static bool g_screen_size_changed = false;
 static int g_screen_width = 0;
 static int g_screen_height = 0;
-static const int g_rect_width = 256;
-static const int g_rect_height = 64;
-static const int g_vertex_count = 6;
-static const int g_index_count = 6;
-static ID3D11Buffer* g_vertexBuffer = nullptr;
-static ID3D11Buffer* g_indexBuffer = nullptr;
-static int g_previous_x = -1;
-static int g_previous_y = -1;
 
-static ID3D11DepthStencilState* g_depthStencilState = nullptr;
-static ID3D11DepthStencilState* g_depthDisabledStencilState = nullptr;
 
-static ID3D11VertexShader*      g_vertexShader = nullptr;
-static ID3D11PixelShader*       g_pixelShader = nullptr;
-static ID3D11InputLayout*       g_layout = nullptr;
-static ID3D11Buffer*            g_matrixBuffer = nullptr;
 
-bool init_d3d_states(ID3D11Device* d3d_device)
+
+class D3D11Core
 {
-    HRESULT hr;
-    D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
-    ZeroMemory(&depthStencilDesc, sizeof(depthStencilDesc));
-    depthStencilDesc.DepthEnable = true;
-    depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
-    depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
-    depthStencilDesc.StencilEnable = true;
-    depthStencilDesc.StencilReadMask = 0xFF;
-    depthStencilDesc.StencilWriteMask = 0xFF;
-    depthStencilDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-    depthStencilDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
-    depthStencilDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
-    depthStencilDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
-    depthStencilDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
-    depthStencilDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
-    depthStencilDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
-    depthStencilDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+public:
+    D3D11Core() = default;
+    D3D11Core(const D3D11Core&) = delete;
 
-    // Create the depth stencil state.
-    hr = d3d_device->CreateDepthStencilState(&depthStencilDesc, &g_depthStencilState);
-    if (FAILED(hr))
+    bool Init(ID3D11Device* d3d_dev)
     {
-        LOG << "Failed to call CreateDepthStencilState(enable), error = " << hr << "\n";
-        return false;
+        InitD3DStates(d3d_dev);
+        return true;
     }
 
-    depthStencilDesc.DepthEnable = false;
-    hr = d3d_device->CreateDepthStencilState(&depthStencilDesc, &g_depthDisabledStencilState);
-    if (FAILED(hr))
+    void Shutdown()
     {
-        LOG << "Failed to call CreateDepthStencilState(disable), error = " << hr << "\n";
-        return false;
     }
 
-    LOG << "Succeeded to init_d3d_states\n";
-    return true;
-}
+    void DisableDepthStencilState(ID3D11DeviceContext* d3d_dev_context)
+    {
+        d3d_dev_context->OMGetDepthStencilState(&m_oldDepthStencilState, &m_odlStencilRef);
+        d3d_dev_context->OMSetDepthStencilState(m_depthDisabledStencilState, 1);
+    }
 
-bool init_d3d_buffers(ID3D11Device* d3d_device)
+    void RestoreDepthStencilState(ID3D11DeviceContext* d3d_dev_context)
+    {
+        d3d_dev_context->OMSetDepthStencilState(m_oldDepthStencilState, m_odlStencilRef);
+    }
+
+private:
+    bool InitD3DStates(ID3D11Device* d3d_dev)
+    {
+        HRESULT hr;
+        D3D11_DEPTH_STENCIL_DESC depthStencilDesc;
+        ZeroMemory(&depthStencilDesc, sizeof(depthStencilDesc));
+        depthStencilDesc.DepthEnable = false;
+        depthStencilDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+        depthStencilDesc.DepthFunc = D3D11_COMPARISON_LESS;
+        depthStencilDesc.StencilEnable = true;
+        depthStencilDesc.StencilReadMask = 0xFF;
+        depthStencilDesc.StencilWriteMask = 0xFF;
+        depthStencilDesc.FrontFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+        depthStencilDesc.FrontFace.StencilDepthFailOp = D3D11_STENCIL_OP_INCR;
+        depthStencilDesc.FrontFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+        depthStencilDesc.FrontFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+        depthStencilDesc.BackFace.StencilFailOp = D3D11_STENCIL_OP_KEEP;
+        depthStencilDesc.BackFace.StencilDepthFailOp = D3D11_STENCIL_OP_DECR;
+        depthStencilDesc.BackFace.StencilPassOp = D3D11_STENCIL_OP_KEEP;
+        depthStencilDesc.BackFace.StencilFunc = D3D11_COMPARISON_ALWAYS;
+
+        hr = d3d_dev->CreateDepthStencilState(&depthStencilDesc, &m_depthDisabledStencilState);
+        if (FAILED(hr))
+        {
+            LOG << "Failed to call CreateDepthStencilState(disable), error = " << hr << "\n";
+            return false;
+        }
+
+        return true;
+    }
+
+private:
+    ID3D11DepthStencilState*    m_oldDepthStencilState = nullptr;
+    UINT                        m_odlStencilRef;
+    ID3D11DepthStencilState*    m_depthDisabledStencilState = nullptr;
+};
+
+class RectangleModel
 {
-    VertexType vertices[g_vertex_count];
-    unsigned long indices[g_index_count] = { 0, 1, 2, 3, 4, 5 };
-    D3D11_BUFFER_DESC vertexBufferDesc, indexBufferDesc;
-    D3D11_SUBRESOURCE_DATA vertexData, indexData;
-    HRESULT result;
-
-    // Set up the description of the static vertex buffer.
-    vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-    vertexBufferDesc.ByteWidth = sizeof(VertexType) * g_vertex_count;
-    vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-    vertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    vertexBufferDesc.MiscFlags = 0;
-    vertexBufferDesc.StructureByteStride = 0;
-
-    // Give the subresource structure a pointer to the vertex data.
-    vertexData.pSysMem = vertices;
-    vertexData.SysMemPitch = 0;
-    vertexData.SysMemSlicePitch = 0;
-
-    // Now create the vertex buffer.
-    result = d3d_device->CreateBuffer(&vertexBufferDesc, &vertexData, &g_vertexBuffer);
-    if (FAILED(result))
+private:
+    struct VertexType
     {
-        LOG << "Failed to call CreateBuffer(vertex), error = " << result << "\n";
-        return false;
+        XMFLOAT3 position;
+        XMFLOAT4 color;
+    };
+
+public:
+    RectangleModel() = default;
+    RectangleModel(const RectangleModel&) = delete;
+
+    bool Init(ID3D11Device* d3d_dev)
+    {
+        if (!InitBuffers(d3d_dev))
+        {
+            return false;
+        }
+        return true;
     }
 
-    // Set up the description of the static index buffer.
-    indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-    indexBufferDesc.ByteWidth = sizeof(unsigned long) * g_index_count;
-    indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-    indexBufferDesc.CPUAccessFlags = 0;
-    indexBufferDesc.MiscFlags = 0;
-    indexBufferDesc.StructureByteStride = 0;
-
-    // Give the subresource structure a pointer to the index data.
-    indexData.pSysMem = indices;
-    indexData.SysMemPitch = 0;
-    indexData.SysMemSlicePitch = 0;
-
-    // Create the index buffer.
-    result = d3d_device->CreateBuffer(&indexBufferDesc, &indexData, &g_indexBuffer);
-    if (FAILED(result))
+    bool Render(ID3D11DeviceContext* d3d_dev_context, int position_x, int position_y, bool screen_size_changed)
     {
-        LOG << "Failed to call CreateBuffer(index), error = " << result << "\n";
-        return false;
+        if (!UpdateBuffers(d3d_dev_context, position_x, position_y, screen_size_changed))
+        {
+            return false;
+        }
+
+        RenderBuffers(d3d_dev_context);
+        return true;
     }
 
-    LOG << "Succeeded to init_d3d_buffers\n";
-    return true;
-}
-
-void output_shader_error_message(ID3D10Blob* errorMessage)
-{
-    char* compileErrors;
-    unsigned long long bufferSize, i;
-
-    // Get a pointer to the error message text buffer.
-    compileErrors = (char*)(errorMessage->GetBufferPointer());
-
-    // Get the length of the message.
-    bufferSize = errorMessage->GetBufferSize();
-
-    // Write out the error message.
-    for (i = 0; i<bufferSize; i++)
+    int GetIndexCount() const
     {
-        LOG << compileErrors[i];
+        return c_index_count;
     }
 
-    // Release the error message.
-    errorMessage->Release();
-    errorMessage = nullptr;
-}
+private:
+    bool InitBuffers(ID3D11Device* d3d_dev)
+    {
+        VertexType vertices[c_vertex_count];
+        unsigned long indices[c_index_count] = { 0, 1, 2, 3, 4, 5 };
+        D3D11_BUFFER_DESC vertexBufferDesc, indexBufferDesc;
+        D3D11_SUBRESOURCE_DATA vertexData, indexData;
+        HRESULT result;
 
-const char ShaderText[] = R"(
+        // Set up the description of the static vertex buffer.
+        vertexBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+        vertexBufferDesc.ByteWidth = sizeof(VertexType) * c_vertex_count;
+        vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        vertexBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        vertexBufferDesc.MiscFlags = 0;
+        vertexBufferDesc.StructureByteStride = 0;
+
+        // Give the subresource structure a pointer to the vertex data.
+        vertexData.pSysMem = vertices;
+        vertexData.SysMemPitch = 0;
+        vertexData.SysMemSlicePitch = 0;
+
+        // Now create the vertex buffer.
+        result = d3d_dev->CreateBuffer(&vertexBufferDesc, &vertexData, &m_vertexBuffer);
+        if (FAILED(result))
+        {
+            LOG << "Failed to call CreateBuffer(vertex), error = " << result << "\n";
+            return false;
+        }
+
+        // Set up the description of the static index buffer.
+        indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+        indexBufferDesc.ByteWidth = sizeof(unsigned long) * c_index_count;
+        indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+        indexBufferDesc.CPUAccessFlags = 0;
+        indexBufferDesc.MiscFlags = 0;
+        indexBufferDesc.StructureByteStride = 0;
+
+        // Give the subresource structure a pointer to the index data.
+        indexData.pSysMem = indices;
+        indexData.SysMemPitch = 0;
+        indexData.SysMemSlicePitch = 0;
+
+        // Create the index buffer.
+        result = d3d_dev->CreateBuffer(&indexBufferDesc, &indexData, &m_indexBuffer);
+        if (FAILED(result))
+        {
+            LOG << "Failed to call CreateBuffer(index), error = " << result << "\n";
+            return false;
+        }
+
+        LOG << "Succeeded to init_d3d_buffers\n";
+        return true;
+    }
+
+    bool UpdateBuffers(ID3D11DeviceContext* d3d_dev_context, int position_x, int position_y, bool screen_size_changed)
+    {
+        float left, right, top, bottom;
+        VertexType vertices[c_vertex_count];
+        D3D11_MAPPED_SUBRESOURCE mappedResource;
+        VertexType* verticesPtr;
+        HRESULT result;
+
+        // If the position we are rendering this bitmap to has not changed then don't update the vertex buffer since it
+        // currently has the correct parameters.
+        if ((position_x == m_previous_x) && (position_y == m_previous_y) && !screen_size_changed)
+        {
+            return true;
+        }
+
+        LOG << "need to update buffers, x = " << position_x << ", y = " << position_y << "\n";
+
+        // If it has changed then update the position it is being rendered to.
+        m_previous_x = position_x;
+        m_previous_y = position_y;
+
+        // Calculate the screen coordinates of the left side of the bitmap.
+        left = (float)((g_screen_width / 2) * -1) + (float)position_x;
+
+        // Calculate the screen coordinates of the right side of the bitmap.
+        right = left + (float)m_rect_width;
+
+        // Calculate the screen coordinates of the top of the bitmap.
+        top = (float)(g_screen_height / 2) - (float)position_y;
+
+        // Calculate the screen coordinates of the bottom of the bitmap.
+        bottom = top - (float)m_rect_height;
+
+        const float Z = 1.0f;
+
+        // Load the vertex array with data.
+        // First triangle.
+        vertices[0].position = XMFLOAT3(left, top, Z);  // Top left.
+        vertices[0].color = XMFLOAT4(0.5f, 0.0f, 0.0f, 1.0f);
+
+        vertices[1].position = XMFLOAT3(right, bottom, Z);  // Bottom right.
+        vertices[1].color = XMFLOAT4(0.0f, 0.5f, 0.0f, 1.0f);
+
+        vertices[2].position = XMFLOAT3(left, bottom, Z);  // Bottom left.
+        vertices[2].color = XMFLOAT4(0.0f, 0.0f, 0.5f, 1.0f);
+
+        // Second triangle.
+        vertices[3].position = XMFLOAT3(left, top, Z);  // Top left.
+        vertices[3].color = XMFLOAT4(0.5f, 0.0f, 0.0f, 1.0f);
+
+        vertices[4].position = XMFLOAT3(right, top, Z);  // Top right.
+        vertices[4].color = XMFLOAT4(0.0f, 0.0f, 0.5f, 1.0f);
+
+        vertices[5].position = XMFLOAT3(right, bottom, Z);  // Bottom right.
+        vertices[5].color = XMFLOAT4(0.0f, 0.5f, 0.0f, 1.0f);
+
+        // Lock the vertex buffer so it can be written to.
+        result = d3d_dev_context->Map(m_vertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+        if (FAILED(result))
+        {
+            LOG << "Failed to call Map(vertexBuffer), error = " << result << "\n";
+            return false;
+        }
+
+        // Get a pointer to the data in the vertex buffer.
+        verticesPtr = (VertexType*)mappedResource.pData;
+
+        // Copy the data into the vertex buffer.
+        memcpy(verticesPtr, (void*)vertices, (sizeof(VertexType) * c_vertex_count));
+
+        // Unlock the vertex buffer.
+        d3d_dev_context->Unmap(m_vertexBuffer, 0);
+
+        return true;
+    }
+
+    bool RenderBuffers(ID3D11DeviceContext* d3d_dev_context)
+    {
+        unsigned int stride;
+        unsigned int offset;
+
+        // Set vertex buffer stride and offset.
+        stride = sizeof(VertexType);
+        offset = 0;
+
+        // Set the vertex buffer to active in the input assembler so it can be rendered.
+        d3d_dev_context->IASetVertexBuffers(0, 1, &m_vertexBuffer, &stride, &offset);
+
+        // Set the index buffer to active in the input assembler so it can be rendered.
+        d3d_dev_context->IASetIndexBuffer(m_indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+        // Set the type of primitive that should be rendered from this vertex buffer, in this case triangles.
+        d3d_dev_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+        return true;
+    }
+
+private:
+    static const int c_vertex_count = 6;
+    static const int c_index_count = 6;
+    ID3D11Buffer* m_vertexBuffer = nullptr;
+    ID3D11Buffer* m_indexBuffer = nullptr;
+
+    const int m_rect_width = 256;
+    const int m_rect_height = 64;
+
+    int m_previous_x = -1;
+    int m_previous_y = -1;
+};
+
+
+const char RectangleShaderText[] = R"(
 cbuffer MatrixBuffer
 {
     matrix orthoMatrix;
@@ -217,297 +349,263 @@ float4 ColorPixelShader(PixelInputType input) : SV_TARGET
 }
 )";
 
-const int ShaderTextLength = sizeof(ShaderText);
+const int RectangleShaderTextLength = sizeof(RectangleShaderText);
 
-
-bool init_d3d_shaders(ID3D11Device* d3d_device)
+class RectangleShader
 {
-    HRESULT result;
-    ID3D10Blob* errorMessage = nullptr;
-    ID3D10Blob* vertexShaderBuffer = nullptr;
-    ID3D10Blob* pixelShaderBuffer = nullptr;
-    D3D11_INPUT_ELEMENT_DESC polygonLayout[2];
-    unsigned int numElements;
-    D3D11_BUFFER_DESC matrixBufferDesc;
-
-    // Compile the vertex shader code.
-    result = D3DCompile(ShaderText, ShaderTextLength,
-        NULL, NULL, NULL,
-        "ColorVertexShader", "vs_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0,
-        &vertexShaderBuffer, &errorMessage);
-    if (FAILED(result))
+private:
+    struct MatrixBufferType
     {
-        // If the shader failed to compile it should have writen something to the error message.
-        if (errorMessage)
+        XMMATRIX ortho;
+    };
+
+public:
+    RectangleShader() = default;
+    RectangleShader(const RectangleShader&) = delete;
+
+    bool Init(ID3D11Device* d3d_dev)
+    {
+        return InitShader(d3d_dev);
+    }
+
+    bool Render(ID3D11DeviceContext* d3d_dev_context, int indexCount, const XMMATRIX& orthoMatrix)
+    {
+        if (!SetShaderParameters(d3d_dev_context, orthoMatrix))
         {
-            output_shader_error_message(errorMessage);
+            return false;
         }
-        // If there was  nothing in the error message then it simply could not find the shader file itself.
-        else
-        {
-            LOG << "Failed to call D3DCompile(VertexShaderText), error = " << result << "\n";
-        }
-        return false;
-    }
 
-    // Compile the pixel shader code.
-    result = D3DCompile(ShaderText, ShaderTextLength,
-        NULL, NULL, NULL, "ColorPixelShader", "ps_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0,
-        &pixelShaderBuffer, &errorMessage);
-    if (FAILED(result))
-    {
-        // If the shader failed to compile it should have writen something to the error message.
-        if (errorMessage)
-        {
-            output_shader_error_message(errorMessage);
-        }
-        // If there was nothing in the error message then it simply could not find the file itself.
-        else
-        {
-            LOG << "Failed to call D3DCompile(PixelShaderText), error = " << result << "\n";
-        }
-        return false;
-    }
-
-    // Create the vertex shader from the buffer.
-    result = d3d_device->CreateVertexShader(vertexShaderBuffer->GetBufferPointer(), vertexShaderBuffer->GetBufferSize(), NULL, &g_vertexShader);
-    if (FAILED(result))
-    {
-        LOG << "Failed to call CreateVertexShader, error = " << result << "\n";
-        return false;
-    }
-
-    // Create the pixel shader from the buffer.
-    result = d3d_device->CreatePixelShader(pixelShaderBuffer->GetBufferPointer(), pixelShaderBuffer->GetBufferSize(), NULL, &g_pixelShader);
-    if (FAILED(result))
-    {
-        LOG << "Failed to call CreatePixelShader, error = " << result << "\n";
-        return false;
-    }
-
-    // Create the vertex input layout description.
-    // This setup needs to match the VertexType stucture in the ModelClass and in the shader.
-    polygonLayout[0].SemanticName = "POSITION";
-    polygonLayout[0].SemanticIndex = 0;
-    polygonLayout[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
-    polygonLayout[0].InputSlot = 0;
-    polygonLayout[0].AlignedByteOffset = 0;
-    polygonLayout[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-    polygonLayout[0].InstanceDataStepRate = 0;
-
-    polygonLayout[1].SemanticName = "COLOR";
-    polygonLayout[1].SemanticIndex = 0;
-    polygonLayout[1].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-    polygonLayout[1].InputSlot = 0;
-    polygonLayout[1].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
-    polygonLayout[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
-    polygonLayout[1].InstanceDataStepRate = 0;
-
-    // Get a count of the elements in the layout.
-    numElements = sizeof(polygonLayout) / sizeof(polygonLayout[0]);
-
-    // Create the vertex input layout.
-    result = d3d_device->CreateInputLayout(polygonLayout, numElements, vertexShaderBuffer->GetBufferPointer(),
-        vertexShaderBuffer->GetBufferSize(), &g_layout);
-    if (FAILED(result))
-    {
-        LOG << "Failed to call CreateInputLayout, error = " << result << "\n";
-        return false;
-    }
-
-    // Release the vertex shader buffer and pixel shader buffer since they are no longer needed.
-    vertexShaderBuffer->Release();
-    vertexShaderBuffer = 0;
-
-    pixelShaderBuffer->Release();
-    pixelShaderBuffer = 0;
-
-    // Setup the description of the dynamic matrix constant buffer that is in the vertex shader.
-    matrixBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-    matrixBufferDesc.ByteWidth = sizeof(MatrixBufferType);
-    matrixBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    matrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-    matrixBufferDesc.MiscFlags = 0;
-    matrixBufferDesc.StructureByteStride = 0;
-
-    // Create the constant buffer pointer so we can access the vertex shader constant buffer from within this class.
-    result = d3d_device->CreateBuffer(&matrixBufferDesc, NULL, &g_matrixBuffer);
-    if (FAILED(result))
-    {
-        LOG << "Failed to call CreateBuffer(matrix), error = " << result << "\n";
-        return false;
-    }
-
-    LOG << "Succeeded to init_d3d_shaders\n";
-    return true;
-}
-
-bool init_d3d_resources(ID3D11Device* d3d_device)
-{
-    init_d3d_states(d3d_device);
-    init_d3d_buffers(d3d_device);
-    init_d3d_shaders(d3d_device);
-    return true;
-}
-
-bool update_buffers(ID3D11DeviceContext* device_context, int position_x, int position_y)
-{
-    float left, right, top, bottom;
-    VertexType vertices[g_vertex_count];
-    D3D11_MAPPED_SUBRESOURCE mappedResource;
-    VertexType* verticesPtr;
-    HRESULT result;
-
-    // If the position we are rendering this bitmap to has not changed then don't update the vertex buffer since it
-    // currently has the correct parameters.
-    if ((position_x == g_previous_x) && (position_y == g_previous_y) && !g_screen_size_changed)
-    {
+        RenderShader(d3d_dev_context, indexCount);
         return true;
     }
 
-    LOG << "need to update buffers, x = " << position_x << ", y = " << position_y << "\n";
-
-    // If it has changed then update the position it is being rendered to.
-    g_previous_x = position_x;
-    g_previous_y = position_y;
-
-    // Calculate the screen coordinates of the left side of the bitmap.
-    left = (float)((g_screen_width / 2) * -1) + (float)position_x;
-
-    // Calculate the screen coordinates of the right side of the bitmap.
-    right = left + (float)g_rect_width;
-
-    // Calculate the screen coordinates of the top of the bitmap.
-    top = (float)(g_screen_height / 2) - (float)position_y;
-
-    // Calculate the screen coordinates of the bottom of the bitmap.
-    bottom = top - (float)g_rect_height;
-
-    const float Z = 1.0f;
-
-    // Load the vertex array with data.
-    // First triangle.
-    vertices[0].position = XMFLOAT3(left, top, Z);  // Top left.
-    vertices[0].color = XMFLOAT4(0.0f, 0.5f, 0.0f, 1.0f);
-
-    vertices[1].position = XMFLOAT3(right, bottom, Z);  // Bottom right.
-    vertices[1].color = XMFLOAT4(0.0f, 0.5f, 0.0f, 1.0f);
-
-    vertices[2].position = XMFLOAT3(left, bottom, Z);  // Bottom left.
-    vertices[2].color = XMFLOAT4(0.0f, 0.5f, 0.0f, 1.0f);
-
-    // Second triangle.
-    vertices[3].position = XMFLOAT3(left, top, Z);  // Top left.
-    vertices[3].color = XMFLOAT4(0.0f, 0.5f, 0.0f, 1.0f);
-
-    vertices[4].position = XMFLOAT3(right, top, Z);  // Top right.
-    vertices[4].color = XMFLOAT4(0.0f, 0.5f, 0.0f, 1.0f);
-
-    vertices[5].position = XMFLOAT3(right, bottom, Z);  // Bottom right.
-    vertices[5].color = XMFLOAT4(0.0f, 0.5f, 0.0f, 1.0f);
-
-    // Lock the vertex buffer so it can be written to.
-    result = device_context->Map(g_vertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-    if (FAILED(result))
+private:
+    bool InitShader(ID3D11Device* d3d_dev)
     {
-        LOG << "Failed to call Map(vertexBuffer), error = " << result << "\n";
-        return false;
+        HRESULT result;
+        ID3D10Blob* errorMessage = nullptr;
+        ID3D10Blob* vertexShaderBuffer = nullptr;
+        ID3D10Blob* pixelShaderBuffer = nullptr;
+        D3D11_INPUT_ELEMENT_DESC polygonLayout[2];
+        unsigned int numElements;
+        D3D11_BUFFER_DESC matrixBufferDesc;
+
+        // Compile the vertex shader code.
+        result = D3DCompile(RectangleShaderText, RectangleShaderTextLength,
+            NULL, NULL, NULL,
+            "ColorVertexShader", "vs_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0,
+            &vertexShaderBuffer, &errorMessage);
+        if (FAILED(result))
+        {
+            // If the shader failed to compile it should have writen something to the error message.
+            if (errorMessage)
+            {
+                OutputShaderErrorMessage(errorMessage);
+            }
+            // If there was  nothing in the error message then it simply could not find the shader file itself.
+            else
+            {
+                LOG << "Failed to call D3DCompile(VertexShaderText), error = " << result << "\n";
+            }
+            return false;
+        }
+
+        // Compile the pixel shader code.
+        result = D3DCompile(RectangleShaderText, RectangleShaderTextLength,
+            NULL, NULL, NULL, "ColorPixelShader", "ps_5_0", D3D10_SHADER_ENABLE_STRICTNESS, 0,
+            &pixelShaderBuffer, &errorMessage);
+        if (FAILED(result))
+        {
+            // If the shader failed to compile it should have writen something to the error message.
+            if (errorMessage)
+            {
+                OutputShaderErrorMessage(errorMessage);
+            }
+            // If there was nothing in the error message then it simply could not find the file itself.
+            else
+            {
+                LOG << "Failed to call D3DCompile(PixelShaderText), error = " << result << "\n";
+            }
+            return false;
+        }
+
+        // Create the vertex shader from the buffer.
+        result = d3d_dev->CreateVertexShader(vertexShaderBuffer->GetBufferPointer(), vertexShaderBuffer->GetBufferSize(), NULL, &m_vertexShader);
+        if (FAILED(result))
+        {
+            LOG << "Failed to call CreateVertexShader, error = " << result << "\n";
+            return false;
+        }
+
+        // Create the pixel shader from the buffer.
+        result = d3d_dev->CreatePixelShader(pixelShaderBuffer->GetBufferPointer(), pixelShaderBuffer->GetBufferSize(), NULL, &m_pixelShader);
+        if (FAILED(result))
+        {
+            LOG << "Failed to call CreatePixelShader, error = " << result << "\n";
+            return false;
+        }
+
+        // Create the vertex input layout description.
+        // This setup needs to match the VertexType stucture in the ModelClass and in the shader.
+        polygonLayout[0].SemanticName = "POSITION";
+        polygonLayout[0].SemanticIndex = 0;
+        polygonLayout[0].Format = DXGI_FORMAT_R32G32B32_FLOAT;
+        polygonLayout[0].InputSlot = 0;
+        polygonLayout[0].AlignedByteOffset = 0;
+        polygonLayout[0].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+        polygonLayout[0].InstanceDataStepRate = 0;
+
+        polygonLayout[1].SemanticName = "COLOR";
+        polygonLayout[1].SemanticIndex = 0;
+        polygonLayout[1].Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+        polygonLayout[1].InputSlot = 0;
+        polygonLayout[1].AlignedByteOffset = D3D11_APPEND_ALIGNED_ELEMENT;
+        polygonLayout[1].InputSlotClass = D3D11_INPUT_PER_VERTEX_DATA;
+        polygonLayout[1].InstanceDataStepRate = 0;
+
+        // Get a count of the elements in the layout.
+        numElements = sizeof(polygonLayout) / sizeof(polygonLayout[0]);
+
+        // Create the vertex input layout.
+        result = d3d_dev->CreateInputLayout(polygonLayout, numElements, vertexShaderBuffer->GetBufferPointer(),
+            vertexShaderBuffer->GetBufferSize(), &m_layout);
+        if (FAILED(result))
+        {
+            LOG << "Failed to call CreateInputLayout, error = " << result << "\n";
+            return false;
+        }
+
+        // Release the vertex shader buffer and pixel shader buffer since they are no longer needed.
+        vertexShaderBuffer->Release();
+        vertexShaderBuffer = 0;
+
+        pixelShaderBuffer->Release();
+        pixelShaderBuffer = 0;
+
+        // Setup the description of the dynamic matrix constant buffer that is in the vertex shader.
+        matrixBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+        matrixBufferDesc.ByteWidth = sizeof(MatrixBufferType);
+        matrixBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        matrixBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+        matrixBufferDesc.MiscFlags = 0;
+        matrixBufferDesc.StructureByteStride = 0;
+
+        // Create the constant buffer pointer so we can access the vertex shader constant buffer from within this class.
+        result = d3d_dev->CreateBuffer(&matrixBufferDesc, NULL, &m_matrixBuffer);
+        if (FAILED(result))
+        {
+            LOG << "Failed to call CreateBuffer(matrix), error = " << result << "\n";
+            return false;
+        }
+
+        LOG << "Succeeded to init_d3d_shaders\n";
+        return true;
     }
 
-    // Get a pointer to the data in the vertex buffer.
-    verticesPtr = (VertexType*)mappedResource.pData;
-
-    // Copy the data into the vertex buffer.
-    memcpy(verticesPtr, (void*)vertices, (sizeof(VertexType) * g_vertex_count));
-
-    // Unlock the vertex buffer.
-    device_context->Unmap(g_vertexBuffer, 0);
-
-    return true;
-}
-
-bool render_buffers(ID3D11DeviceContext* device_context)
-{
-    unsigned int stride;
-    unsigned int offset;
-
-    // Set vertex buffer stride and offset.
-    stride = sizeof(VertexType);
-    offset = 0;
-
-    // Set the vertex buffer to active in the input assembler so it can be rendered.
-    device_context->IASetVertexBuffers(0, 1, &g_vertexBuffer, &stride, &offset);
-
-    // Set the index buffer to active in the input assembler so it can be rendered.
-    device_context->IASetIndexBuffer(g_indexBuffer, DXGI_FORMAT_R32_UINT, 0);
-
-    // Set the type of primitive that should be rendered from this vertex buffer, in this case triangles.
-    device_context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-    return true;
-}
-
-bool set_shader_parameters(
-    ID3D11DeviceContext* device_context,
-    const XMMATRIX& orthoMatrix)
-{
-    HRESULT result;
-    D3D11_MAPPED_SUBRESOURCE mappedResource;
-    MatrixBufferType* dataPtr;
-    unsigned int bufferNumber;
-
-    // Lock the constant buffer so it can be written to.
-    result = device_context->Map(g_matrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-    if (FAILED(result))
+    void OutputShaderErrorMessage(ID3D10Blob* errorMessage)
     {
-        LOG << "Failed to call Map(matrixBuffer), error = " << result << "\n";
-        return false;
+        char* compileErrors;
+        unsigned long long bufferSize, i;
+
+        // Get a pointer to the error message text buffer.
+        compileErrors = (char*)(errorMessage->GetBufferPointer());
+
+        // Get the length of the message.
+        bufferSize = errorMessage->GetBufferSize();
+
+        // Write out the error message.
+        for (i = 0; i<bufferSize; i++)
+        {
+            LOG << compileErrors[i];
+        }
+
+        // Release the error message.
+        errorMessage->Release();
+        errorMessage = nullptr;
     }
 
-    // Get a pointer to the data in the constant buffer.
-    dataPtr = (MatrixBufferType*)mappedResource.pData;
+    bool SetShaderParameters(
+        ID3D11DeviceContext* d3d_dev_context,
+        const XMMATRIX& orthoMatrix)
+    {
+        HRESULT result;
+        D3D11_MAPPED_SUBRESOURCE mappedResource;
+        MatrixBufferType* dataPtr;
+        unsigned int bufferNumber;
 
-    // Copy the matrices into the constant buffer.
-    dataPtr->ortho = XMMatrixTranspose(orthoMatrix);;
+        // Lock the constant buffer so it can be written to.
+        result = d3d_dev_context->Map(m_matrixBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+        if (FAILED(result))
+        {
+            LOG << "Failed to call Map(matrixBuffer), error = " << result << "\n";
+            return false;
+        }
 
-    // Unlock the constant buffer.
-    device_context->Unmap(g_matrixBuffer, 0);
+        // Get a pointer to the data in the constant buffer.
+        dataPtr = (MatrixBufferType*)mappedResource.pData;
 
-    // Set the position of the constant buffer in the vertex shader.
-    bufferNumber = 0;
+        // Copy the matrices into the constant buffer.
+        dataPtr->ortho = XMMatrixTranspose(orthoMatrix);;
 
-    // Finanly set the constant buffer in the vertex shader with the updated values.
-    device_context->VSSetConstantBuffers(bufferNumber, 1, &g_matrixBuffer);
+        // Unlock the constant buffer.
+        d3d_dev_context->Unmap(m_matrixBuffer, 0);
 
-    return true;
-}
+        // Set the position of the constant buffer in the vertex shader.
+        bufferNumber = 0;
 
-void render_shader(ID3D11DeviceContext* device_context, int indexCount)
+        // Finanly set the constant buffer in the vertex shader with the updated values.
+        d3d_dev_context->VSSetConstantBuffers(bufferNumber, 1, &m_matrixBuffer);
+
+        return true;
+    }
+
+    void RenderShader(ID3D11DeviceContext* d3d_dev_context, int indexCount)
+    {
+        // Set the vertex input layout.
+        d3d_dev_context->IASetInputLayout(m_layout);
+
+        // Set the vertex and pixel shaders that will be used to render this triangle.
+        d3d_dev_context->VSSetShader(m_vertexShader, NULL, 0);
+        d3d_dev_context->PSSetShader(m_pixelShader, NULL, 0);
+
+        // Render the triangle.
+        d3d_dev_context->DrawIndexed(indexCount, 0, 0);
+    }
+
+private:
+    ID3D11VertexShader*      m_vertexShader = nullptr;
+    ID3D11PixelShader*       m_pixelShader = nullptr;
+    ID3D11InputLayout*       m_layout = nullptr;
+    ID3D11Buffer*            m_matrixBuffer = nullptr;
+};
+
+
+static D3D11Core g_d3d11core;
+static RectangleModel g_model;
+static RectangleShader g_shader;
+
+
+
+
+bool init_d3d_resources(ID3D11Device* d3d_device)
 {
-    // Set the vertex input layout.
-    device_context->IASetInputLayout(g_layout);
-
-    // Set the vertex and pixel shaders that will be used to render this triangle.
-    device_context->VSSetShader(g_vertexShader, NULL, 0);
-    device_context->PSSetShader(g_pixelShader, NULL, 0);
-
-    // Render the triangle.
-    device_context->DrawIndexed(indexCount, 0, 0);
+    g_d3d11core.Init(d3d_device);
+    g_model.Init(d3d_device);
+    g_shader.Init(d3d_device);
+    return true;
 }
 
 bool render(ID3D11DeviceContext* device_context)
 {
-    device_context->OMSetDepthStencilState(g_depthDisabledStencilState, 1);
+    g_d3d11core.DisableDepthStencilState(device_context);
 
     auto ortho_matrix = XMMatrixOrthographicLH((float)g_screen_width, (float)g_screen_height, 0.0f, 1.0f);
 
-    update_buffers(device_context, 0, 0);
-    render_buffers(device_context);
+    g_model.Render(device_context, 0, 0, g_screen_size_changed);
 
-    set_shader_parameters(device_context, ortho_matrix);
-    render_shader(device_context, g_index_count);
+    g_shader.Render(device_context, g_model.GetIndexCount(), ortho_matrix);
 
-    device_context->OMSetDepthStencilState(g_depthStencilState, 1);
+    g_d3d11core.RestoreDepthStencilState(device_context);
     return true;
 }
 
@@ -516,7 +614,6 @@ bool render(ID3D11DeviceContext* device_context)
 //
 long __stdcall hookD3D11Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT Flags)
 {
-#if 1
     static bool init = false;
     static BOOL windowed = true;
 
@@ -540,7 +637,6 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, U
     if (!init)
     {
         init = true;
-        //MessageBox(0, _T("Boom! It's works!"), _T("Kiero"), MB_OK);
         LOG << "Boom! It's works!\n";
 
         if (SUCCEEDED(hr))
@@ -580,7 +676,6 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, U
             g_screen_size_changed = false;
         }
     }
-#endif
 
     if (pPreviousDevice != pDevice)
     {
