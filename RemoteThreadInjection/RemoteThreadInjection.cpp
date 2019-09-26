@@ -140,7 +140,7 @@ int main(int argc, char** argv)
     HANDLE process = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
     if (process == NULL)
     {
-        printf("Failed to call OpenProcess, code = %u\n", GetLastError());
+        printf("Failed to call OpenProcess, pid = %d, code = %u\n", pid, GetLastError());
         return -3;
     }
 
@@ -153,6 +153,7 @@ int main(int argc, char** argv)
     if (remoteModule == NULL)
     {
         CloseHandle(process);
+        printf("Failed to inject DLL\n");
         return -4;
     }
 
