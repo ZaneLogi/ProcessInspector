@@ -45,6 +45,7 @@ DWORD GetProcessThreadID(DWORD pid)
     } while (hasNext);
 
     CloseHandle(snapshot);
+
     return threadID;
 }
 
@@ -69,6 +70,8 @@ HHOOK InjectDll(DWORD pid, LPCTSTR dllPath)
     if (pid != 0)
     {
         threadID = GetProcessThreadID(pid);
+        printf("MainThreadID: %d\n", threadID);
+
         if (threadID == 0)
         {
             printf("Failed to get the thread ID.\n");
@@ -86,25 +89,10 @@ HHOOK InjectDll(DWORD pid, LPCTSTR dllPath)
 
 
 
-HHOOK SetHook(LPCTSTR injected_dll_name, LPCTSTR application_name = nullptr)
+HHOOK SetHook(LPCTSTR injected_dll_name, DWORD pid)
 {
-    DWORD pid = 0;
-
-    if (application_name != nullptr)
-    {
-        HWND hwnd = FindWindow(NULL, application_name);
-        if (hwnd == NULL)
-        {
-            printf("Failed to find the windows, code = %u\n", GetLastError());
-            return nullptr;
-        }
-
-        GetWindowThreadProcessId(hwnd, &pid);
-    }
-    else
-    {
-        pid = 0; // global hook
-    }
+    // if pid is 0, global hook
+    printf("PID = %d\n", pid);
 
     HHOOK hook = InjectDll(pid, injected_dll_name);
     if (hook == NULL)
@@ -113,12 +101,53 @@ HHOOK SetHook(LPCTSTR injected_dll_name, LPCTSTR application_name = nullptr)
     return hook;
 }
 
-
-int main()
+DWORD GetApplicationProcessID(LPCTSTR application_name)
 {
+    _tprintf(_T("Application Name: %s\n"), application_name);
+
+    DWORD pid = 0;
+    HWND hwnd = FindWindow(NULL, application_name);
+    if (hwnd == NULL)
+    {
+        _tprintf(_T("Failed to find the windows, code = %u\n"), GetLastError());
+        return 0;
+    }
+
+    GetWindowThreadProcessId(hwnd, &pid);
+
+    return pid;
+}
+
+
+int _tmain(int argc, TCHAR** argv)
+{
+    if (argc != 3)
+    {
+        _tprintf(_T("Syntax: MsgHook pid= [pid] or title= [application title]\n"));
+        return -1;
+    }
+
+    DWORD pid = 0;
+
+    if (_tcsicmp(argv[1], _T("pid=")) == 0)
+    {
+        pid = _tcstoul(argv[2], nullptr, 10);
+        _tprintf(_T("pid=%d\n", pid));
+    }
+    else if (_tcsicmp(argv[1], _T("title=")) == 0)
+    {
+        pid = GetApplicationProcessID(argv[2]);
+        _tprintf(_T("application pid = %d\n"), pid);
+    }
+    else
+    {
+        _tprintf(_T("missing'pid=' or 'title='\n"));
+        return -2;
+    }
+
     EnablePrivilege(TRUE);
     // target name: "Direct3D 11 Application"  "Our Direct3D Program"
-    auto hook = SetHook(_T("InjectionDll.dll"), _T("Our Direct3D Program"));
+    auto hook = SetHook(_T("InjectionDll.dll"), pid);
     if (hook != nullptr)
     {
         printf("Please hit return/enter key to unload DLL.\n");
