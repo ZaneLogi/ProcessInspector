@@ -59,7 +59,12 @@ HHOOK InjectDll(DWORD pid, LPCTSTR dllPath)
         return NULL;
     }
 
+#ifdef _WIN64
     HOOKPROC proc = (HOOKPROC)GetProcAddress(module, "CallWndProc");
+#else
+    HOOKPROC proc = (HOOKPROC)GetProcAddress(module, "_CallWndProc@12");
+#endif
+
     if (proc == NULL)
     {
         printf("Failed to get the hook function address, code = %u\n", GetLastError());
