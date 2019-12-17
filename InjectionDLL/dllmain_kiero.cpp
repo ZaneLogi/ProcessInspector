@@ -1117,6 +1117,7 @@ DWORD WINAPI HookThread(LPVOID lpThreadParameter)
 BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
 {
     CHAR processPath[MAX_PATH];
+    CHAR modulePath[MAX_PATH];
 
     DisableThreadLibraryCalls(hInstance);
 
@@ -1125,6 +1126,12 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
     case DLL_PROCESS_ATTACH:
         GetModuleFileNameA(GetModuleHandle(NULL), processPath, MAX_PATH);
         LOG << "Inject DLL to " << processPath << "\n";
+
+        GetModuleFileNameA(hInstance, modulePath, MAX_PATH);
+        LOG << "DLL path: " << modulePath << "\n";
+
+        LoadLibraryA(modulePath); // call this function so the dll would be kept in the injected process when the injection helper quits.
+
         CreateThread(NULL, 0, HookThread, NULL, 0, NULL);
         break;
 
