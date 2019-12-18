@@ -1,6 +1,16 @@
 #include "stdafx.h"
+#include <memory>
 #include "Logger.h"
 #include "kiero.h"
+
+#include "d3d11_method_table.h"
+#include "d3d10_method_table.h"
+#include "d3d9_method_table.h"
+
+#include "apihook.hpp"
+
+#include "../minhook/include/MinHook.h"
+
 #include <d3d9.h>
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -11,6 +21,13 @@ using namespace DirectX;
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3dcompiler.lib")
+
+
+typedef HRESULT(STDMETHODCALLTYPE *DXGISwapChainPresentType)(IDXGISwapChain *, UINT, UINT);
+std::unique_ptr<ApiHook<DXGISwapChainPresentType>> g_dxgiSwapChainPresentHook;
+
+
+
 
 // Create the type of function that we will hook
 typedef long(__stdcall* EndScene)(LPDIRECT3DDEVICE9);
@@ -26,7 +43,7 @@ long __stdcall hkD3D9EndScene(LPDIRECT3DDEVICE9 pDevice)
     if (!init)
     {
         //MessageBox(0, _T("Boom! It's works!"), _T("Kiero"), MB_OK);
-        LOG << "Boom! It's works!\n";
+        LOG << "D3D9: Boom! It's works!\n";
         init = true;
     }
 #endif
@@ -35,7 +52,7 @@ long __stdcall hkD3D9EndScene(LPDIRECT3DDEVICE9 pDevice)
 }
 
 typedef long (__stdcall* IDXGISwapChain_Present)(IDXGISwapChain* pSwapChain, UINT SyncInterval, UINT Flags);
-static IDXGISwapChain_Present originalD3D11Present = nullptr;
+//static IDXGISwapChain_Present originalD3D11Present = nullptr;
 
 #define D3DHOOK_SAMPLE_INDEX 1
 
@@ -63,8 +80,8 @@ public:
 
     bool Init(ID3D11Device* d3d_dev)
     {
-        InitD3DStates(d3d_dev);
-        return true;
+        m_ready = InitD3DStates(d3d_dev);
+        return m_ready;
     }
 
     void Shutdown()
@@ -150,6 +167,8 @@ private:
     }
 
 private:
+    bool                        m_ready = false;
+
     ID3D11DepthStencilState*    m_oldDepthStencilState = nullptr;
     UINT                        m_odlStencilRef;
     ID3D11DepthStencilState*    m_depthDisabledStencilState = nullptr;
@@ -175,21 +194,21 @@ public:
 
     bool Init(ID3D11Device* d3d_dev)
     {
-        if (!InitBuffers(d3d_dev))
-        {
-            return false;
-        }
-        return true;
+        m_ready = InitBuffers(d3d_dev);
+        return m_ready;
     }
 
     bool Render(ID3D11DeviceContext* d3d_dev_context, int position_x, int position_y, bool screen_size_changed)
     {
-        if (!UpdateBuffers(d3d_dev_context, position_x, position_y, screen_size_changed))
+        if (m_ready)
         {
-            return false;
-        }
+            if (!UpdateBuffers(d3d_dev_context, position_x, position_y, screen_size_changed))
+            {
+                return false;
+            }
 
-        RenderBuffers(d3d_dev_context);
+            RenderBuffers(d3d_dev_context);
+        }
         return true;
     }
 
@@ -351,6 +370,8 @@ private:
     }
 
 private:
+    bool m_ready = false;
+
     static const int c_vertex_count = 6;
     static const int c_index_count = 6;
     ID3D11Buffer* m_vertexBuffer = nullptr;
@@ -409,17 +430,21 @@ public:
 
     bool Init(ID3D11Device* d3d_dev)
     {
-        return InitShader(d3d_dev);
+        m_ready = InitShader(d3d_dev);
+        return m_ready;
     }
 
     bool Render(ID3D11DeviceContext* d3d_dev_context, int indexCount, const XMMATRIX& orthoMatrix)
     {
-        if (!SetShaderParameters(d3d_dev_context, orthoMatrix))
+        if (m_ready)
         {
-            return false;
-        }
+            if (!SetShaderParameters(d3d_dev_context, orthoMatrix))
+            {
+                return false;
+            }
 
-        RenderShader(d3d_dev_context, indexCount);
+            RenderShader(d3d_dev_context, indexCount);
+        }
         return true;
     }
 
@@ -617,6 +642,7 @@ private:
     }
 
 private:
+    bool                     m_ready = false;
     ID3D11VertexShader*      m_vertexShader = nullptr;
     ID3D11PixelShader*       m_pixelShader = nullptr;
     ID3D11InputLayout*       m_layout = nullptr;
@@ -633,11 +659,30 @@ static RectangleShader g_shader;
 
 bool init_d3d_resources(ID3D11Device* d3d_device, ID3D11DeviceContext* d3d_dev_context)
 {
-    g_d3d11core.Init(d3d_device);
-    g_model.Init(d3d_device);
-    g_shader.Init(d3d_device);
+    if (!g_d3d11core.Init(d3d_device))
+    {
+        LOG << "g_d3d11core.Init failed!\n";
+        return false;
+    }
 
-    g_text.initialize(d3d_device, d3d_dev_context, NULL, g_screen_width, g_screen_height);
+    if (!g_model.Init(d3d_device))
+    {
+        LOG << "g_model.Init failed!\n";
+        return false;
+    }
+
+    if (!g_shader.Init(d3d_device))
+    {
+        LOG << "g_model.Init failed!\n";
+        return false;
+    }
+
+    if (!g_text.initialize(d3d_device, d3d_dev_context, NULL, g_screen_width, g_screen_height))
+    {
+        LOG << "g_text.initialize failed!\n";
+        return false;
+    }
+
     return true;
 }
 
@@ -673,21 +718,54 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, U
     DXGI_SWAP_CHAIN_DESC dscd;
     hr = pSwapChain->GetDesc(&dscd);
 
+    bool is_d3d11dev = false;
+    bool is_d3d10dev = false;
+
     ID3D11Device* pDevice = nullptr;
     ID3D11DeviceContext* pDeviceContext = nullptr;
     if (SUCCEEDED(hr))
     {
-        hr = pSwapChain->GetDevice(__uuidof(pDevice), (LPVOID*)&pDevice);
+        hr = pSwapChain->GetDevice(__uuidof(ID3D11Device), (LPVOID*)&pDevice);
     }
     if (SUCCEEDED(hr))
     {
+        is_d3d11dev = true;
         pDevice->GetImmediateContext(&pDeviceContext);
+    }
+
+    ID3D10Device* pd3d10Device = nullptr;
+    if (SUCCEEDED(pSwapChain->GetDevice(__uuidof(pd3d10Device), (LPVOID*)&pd3d10Device)))
+    {
+        is_d3d10dev = true;
+        pd3d10Device->Release();
+    }
+
+    if (FAILED(hr) || !pDevice || !pDeviceContext)
+    {
+        static bool err_once = false;
+        if (!err_once)
+        {
+            err_once = true;
+            LOG << "direct call original function Present!\n";
+        }
+        //return originalD3D11Present(pSwapChain, SyncInterval, Flags);
+        return g_dxgiSwapChainPresentHook->callOrginal<HRESULT>(pSwapChain, SyncInterval, Flags);
     }
 
     if (!init)
     {
         init = true;
         LOG << "Boom! It's works!\n";
+
+        bool isDX11 = (is_d3d11dev && !is_d3d10dev);
+        if (isDX11)
+        {
+            LOG << "DX11 application!\n";
+        }
+        else
+        {
+            LOG << "DX10 application!\n";
+        }
 
         if (SUCCEEDED(hr))
         {
@@ -749,8 +827,9 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, U
         pDevice = nullptr;
     }
 
-    return originalD3D11Present(pSwapChain, SyncInterval, Flags);
+    //return originalD3D11Present(pSwapChain, SyncInterval, Flags);
     //return S_OK;
+    return g_dxgiSwapChainPresentHook->callOrginal<HRESULT>(pSwapChain, SyncInterval, Flags);
 }
 
 #endif
@@ -1039,6 +1118,11 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pThis, UINT SyncInterval, UINT F
 
 DWORD WINAPI HookThread(LPVOID lpThreadParameter)
 {
+    {
+        wchar_t* test_string = L"Enter hook thread.\r\n";
+        WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE), test_string, (DWORD)wcslen(test_string), nullptr, nullptr);
+    }
+
     LOG << "enter kieroExampleThread\n";
     bool d3d9 = false;
     bool d3d10 = false;
@@ -1079,7 +1163,49 @@ DWORD WINAPI HookThread(LPVOID lpThreadParameter)
         vulcan = true;
     }
 
+    MH_Initialize();
 
+    // try to hook dxgi
+    if (d3d11_method_table::instance()->init())
+    {
+        LOG << "d3d11_method_table enabled\n";
+        auto target = (*d3d11_method_table::instance())[8];
+        g_dxgiSwapChainPresentHook.reset(new ApiHook<DXGISwapChainPresentType>(L"DXGISwapChainPresentType",
+            target, (DWORD_PTR *)hookD3D11Present));
+        g_dxgiSwapChainPresentHook->activeHook();
+
+
+        //if (!d3d11_method_table::instance()->bind(8, (void**)&originalD3D11Present, hookD3D11Present))
+        //{
+        //   LOG << "Failed to call d3d11hook::bind\n";
+        //}
+    }
+    else if (d3d10_method_table::instance()->init())
+    {
+        LOG << "d3d10_method_table enabled\n";
+        auto target = (*d3d11_method_table::instance())[8];
+        g_dxgiSwapChainPresentHook.reset(new ApiHook<DXGISwapChainPresentType>(L"DXGISwapChainPresentType",
+            target, (DWORD_PTR *)hookD3D11Present));
+        g_dxgiSwapChainPresentHook->activeHook();
+    }
+    else
+    {
+        LOG << "not d3d11 or d3d10\n";
+    }
+
+    if (d3d9_method_table::instance()->init())
+    {
+        LOG << "d3d9hook enabled\n";
+        if (!d3d9_method_table::instance()->bind(42, (void**)&oEndScene, hkD3D9EndScene))
+        {
+            LOG << "Failed to call d3d9hook::bind\n";
+        }
+    }
+    else
+    {
+        LOG << "Failed to call d3d9hook::init\n";
+    }
+    /*
     auto result = kiero::init(kiero::RenderType::D3D11);
     if ( result == kiero::Status::Success)
     {
@@ -1106,6 +1232,7 @@ DWORD WINAPI HookThread(LPVOID lpThreadParameter)
     {
         LOG << "Failed to call kiero::init, err = " << result << "\n";
     }
+    */
 
     LOG << "exit kieroExampleThread\n";
 
@@ -1133,6 +1260,12 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
         LoadLibraryA(modulePath); // call this function so the dll would be kept in the injected process when the injection helper quits.
 
         CreateThread(NULL, 0, HookThread, NULL, 0, NULL);
+
+        AllocConsole();
+        {
+            wchar_t* test_string = L"injection dll console.\r\n";
+            WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE), test_string, (DWORD)wcslen(test_string), nullptr, nullptr);
+        }
         break;
 
     case DLL_PROCESS_DETACH:
@@ -1140,14 +1273,23 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
         LOG << "Unload DLL from " << processPath << "\n";
         if (oEndScene != nullptr)
         {
-            kiero::unbind(42);
+            //kiero::unbind(42);
+            d3d9_method_table::instance()->unbind(42);
             oEndScene = nullptr;
         }
-        if (originalD3D11Present != nullptr)
+        //if (originalD3D11Present != nullptr)
+        //{
+            //kiero::unbind(8);
+        //    d3d11_method_table::instance()->unbind(8);
+        //    originalD3D11Present = nullptr;
+        //}
+
+        if (g_dxgiSwapChainPresentHook)
         {
-            kiero::unbind(8);
-            originalD3D11Present = nullptr;
+            g_dxgiSwapChainPresentHook.reset(nullptr);
         }
+
+        FreeConsole();
         break;
     }
 

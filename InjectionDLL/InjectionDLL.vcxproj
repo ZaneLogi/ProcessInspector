@@ -206,8 +206,12 @@ copy $(TargetPath) %remote% /Y
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="apihook.hpp" />
     <ClInclude Include="BitmapFont.h" />
     <ClInclude Include="BitmapFontShader.h" />
+    <ClInclude Include="d3d10_method_table.h" />
+    <ClInclude Include="d3d11_method_table.h" />
+    <ClInclude Include="d3d9_method_table.h" />
     <ClInclude Include="kiero.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="MsgHookProc.h" />
@@ -218,6 +222,9 @@ copy $(TargetPath) %remote% /Y
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BitmapFont.cpp" />
+    <ClCompile Include="d3d10_method_table.cpp" />
+    <ClCompile Include="d3d11_method_table.cpp" />
+    <ClCompile Include="d3d9_method_table.cpp" />
     <ClCompile Include="dllmain.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</CompileAsManaged>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

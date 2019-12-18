@@ -74,6 +74,8 @@ bool Text::initialize(ID3D11Device* device, ID3D11DeviceContext* deviceContext, 
         return false;
     }
 
+    m_ready = true;
+
     return true;
 }
 
@@ -107,6 +109,9 @@ void Text::shutdown()
 bool Text::render(ID3D11DeviceContext* deviceContext, const XMMATRIX& orthoMatrix)
 {
     bool result;
+
+    if (!m_ready)
+        return false;
 
 
     // Draw the first sentence.

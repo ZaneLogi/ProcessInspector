@@ -34,6 +34,7 @@ private:
     bool RenderSentence(ID3D11DeviceContext*, SentenceType*, const XMMATRIX&);
 
 private:
+    bool m_ready = false;
     BitmapFont* m_Font = nullptr;
     BitmapFontShader* m_FontShader = nullptr;
     int m_screenWidth, m_screenHeight;

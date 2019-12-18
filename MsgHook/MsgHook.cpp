@@ -150,6 +150,12 @@ int _tmain(int argc, TCHAR** argv)
         return -2;
     }
 
+    if (pid == 0)
+    {
+        _tprintf(_T("pid == 0\n"));
+        return -3;
+    }
+
     EnablePrivilege(TRUE);
     // target name: "Direct3D 11 Application"  "Our Direct3D Program"
     auto hook = SetHook(_T("InjectionDll.dll"), pid);
