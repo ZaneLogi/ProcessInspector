@@ -16,7 +16,7 @@ public:
     bool bind(uint16_t _index, void** _original, void* _function);
     void unbind(uint16_t index);
 
-    void* operator[] (int index);
+    DWORD_PTR* operator[] (int index);
 
 private:
     DWORD_PTR* m_methodsTable = nullptr;

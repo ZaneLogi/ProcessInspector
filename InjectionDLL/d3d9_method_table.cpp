@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include <d3d9.h>
 #include <cassert>
+#include "Logger.h"
 #include "d3d9_method_table.h"
 #include "../minhook/include/MinHook.h"
 
@@ -40,6 +41,7 @@ bool d3d9_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: GetModuleHandle('d3d9.dll') returns NULL.\n";
         return false;
     }
 
@@ -48,6 +50,7 @@ bool d3d9_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: GetProcAddress('Direct3DCreate9') returns NULL.\n";
         return false;
     }
 
@@ -56,6 +59,7 @@ bool d3d9_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: Direct3DCreate9 returns NULL.\n";
         return false;
     }
 
@@ -64,6 +68,7 @@ bool d3d9_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: IDirect3DDevice9::GetAdapterDisplayMode returns err.\n";
         return false;
     }
 
@@ -89,6 +94,7 @@ bool d3d9_method_table::init()
         direct3D9->Release();
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: IDirect3DDevice9::CreateDevice returns err.\n";
         return false;
     }
 
@@ -133,7 +139,7 @@ void d3d9_method_table::unbind(uint16_t index)
     MH_DisableHook((void*)m_methodsTable[index]);
 }
 
-void* d3d9_method_table::operator[] (int index)
+DWORD_PTR* d3d9_method_table::operator[] (int index)
 {
-    return (void*)m_methodsTable[index];
+    return (DWORD_PTR*)m_methodsTable[index];
 }

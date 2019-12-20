@@ -85,6 +85,7 @@ HHOOK InjectDll(DWORD pid, LPCTSTR dllPath)
     }
 
     HHOOK hook = SetWindowsHookEx(WH_GETMESSAGE, proc, module, threadID);
+    printf("hook: %p\n", hook);
 
     FreeLibrary(module);
 
@@ -165,6 +166,10 @@ int _tmain(int argc, TCHAR** argv)
         getchar();
 
         UnhookWindowsHookEx(hook);
+    }
+    else
+    {
+        printf("Failed too hook!!!\n");
     }
 
     return 0;

@@ -3,6 +3,7 @@
 #include <d3d10_1.h>
 #include <d3d10.h>
 #include <cassert>
+#include "Logger.h"
 #include "d3d10_method_table.h"
 #include "../minhook/include/MinHook.h"
 
@@ -44,6 +45,7 @@ bool d3d10_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: GetModuleHandle('dxgi.dll') returns NULL.\n";
         return false;
     }
 
@@ -52,6 +54,7 @@ bool d3d10_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: GetProcAddress('CreateDXGIFactory') returns NULL.\n";
         return false;
     }
 
@@ -60,6 +63,7 @@ bool d3d10_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: CreateDXGIFactory returns err.\n";
         return false;
     }
 
@@ -68,6 +72,7 @@ bool d3d10_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: IDXGIFactory::EnumAdapters returns err.\n";
         return false;
     }
 
@@ -76,6 +81,7 @@ bool d3d10_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: GetProcAddress('D3D10CreateDeviceAndSwapChain') returns NULL.\n";
         return false;
     }
 
@@ -120,6 +126,7 @@ bool d3d10_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: D3D10CreateDeviceAndSwapChain returns err.\n";
         return false;
     }
 
@@ -165,7 +172,7 @@ void d3d10_method_table::unbind(uint16_t index)
     MH_DisableHook((void*)m_methodsTable[index]);
 }
 
-void* d3d10_method_table::operator[] (int index)
+DWORD_PTR* d3d10_method_table::operator[] (int index)
 {
-    return (void*)m_methodsTable[index];
+    return (DWORD_PTR*)m_methodsTable[index];
 }

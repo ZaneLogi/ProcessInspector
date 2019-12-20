@@ -1118,10 +1118,10 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pThis, UINT SyncInterval, UINT F
 
 DWORD WINAPI HookThread(LPVOID lpThreadParameter)
 {
-    {
+    /*{
         wchar_t* test_string = L"Enter hook thread.\r\n";
         WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE), test_string, (DWORD)wcslen(test_string), nullptr, nullptr);
-    }
+    }*/
 
     LOG << "enter kieroExampleThread\n";
     bool d3d9 = false;
@@ -1257,15 +1257,15 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
         GetModuleFileNameA(hInstance, modulePath, MAX_PATH);
         LOG << "DLL path: " << modulePath << "\n";
 
-        LoadLibraryA(modulePath); // call this function so the dll would be kept in the injected process when the injection helper quits.
+        //LoadLibraryA(modulePath); // call this function so the dll would be kept in the injected process when the injection helper quits.
 
         CreateThread(NULL, 0, HookThread, NULL, 0, NULL);
 
-        AllocConsole();
+        /*AllocConsole();
         {
             wchar_t* test_string = L"injection dll console.\r\n";
             WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE), test_string, (DWORD)wcslen(test_string), nullptr, nullptr);
-        }
+        }*/
         break;
 
     case DLL_PROCESS_DETACH:
@@ -1289,7 +1289,7 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
             g_dxgiSwapChainPresentHook.reset(nullptr);
         }
 
-        FreeConsole();
+        //FreeConsole();
         break;
     }
 

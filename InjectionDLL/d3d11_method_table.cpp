@@ -2,6 +2,7 @@
 #include <dxgi.h>
 #include <d3d11.h>
 #include <cassert>
+#include "Logger.h"
 #include "d3d11_method_table.h"
 #include "../minhook/include/MinHook.h"
 
@@ -41,6 +42,7 @@ bool d3d11_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: GetModuleHandle('d3d11.dll') returns NULL.\n";
         return false;
     }
 
@@ -49,6 +51,7 @@ bool d3d11_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: GetProcAddress('D3D11CreateDeviceAndSwapChain') returns NULL.\n";
         return false;
     }
 
@@ -101,6 +104,7 @@ bool d3d11_method_table::init()
     {
         ::DestroyWindow(hwnd);
         ::UnregisterClass(windowClass.lpszClassName, windowClass.hInstance);
+        LOG << "ERR: D3D11CreateDeviceAndSwapChain returns err.\n";
         return false;
     }
 
