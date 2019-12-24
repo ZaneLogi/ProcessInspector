@@ -138,7 +138,7 @@ int _tmain(int argc, TCHAR** argv)
     if (_tcsicmp(argv[1], _T("pid=")) == 0)
     {
         pid = _tcstoul(argv[2], nullptr, 10);
-        _tprintf(_T("pid=%d\n", pid));
+        _tprintf(_T("pid=%d\n"), pid);
     }
     else if (_tcsicmp(argv[1], _T("title=")) == 0)
     {
@@ -158,12 +158,21 @@ int _tmain(int argc, TCHAR** argv)
     }
 
     EnablePrivilege(TRUE);
+
+#ifdef _WIN64
+    PCWSTR dllname = L"InjectionDll64.dll";
+#else
+    PCTSTR dllname = _T("InjectionDll32.dll");
+#endif
+
+
     // target name: "Direct3D 11 Application"  "Our Direct3D Program"
-    auto hook = SetHook(_T("InjectionDll.dll"), pid);
+    auto hook = SetHook(dllname, pid);
     if (hook != nullptr)
     {
-        printf("Please hit return/enter key to unload DLL.\n");
-        getchar();
+        //printf("Please hit return/enter key to unload DLL.\n");
+        //getchar();
+        Sleep(5 * 1000);
 
         UnhookWindowsHookEx(hook);
     }

@@ -1257,7 +1257,7 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
         GetModuleFileNameA(hInstance, modulePath, MAX_PATH);
         LOG << "DLL path: " << modulePath << "\n";
 
-        //LoadLibraryA(modulePath); // call this function so the dll would be kept in the injected process when the injection helper quits.
+        LoadLibraryA(modulePath); // call this function so the dll would be kept in the injected process when the injection helper quits.
 
         CreateThread(NULL, 0, HookThread, NULL, 0, NULL);
 

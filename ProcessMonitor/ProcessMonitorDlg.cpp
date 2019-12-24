@@ -14,6 +14,34 @@
 
 #define APPLICATION_EVENT_MSG (WM_USER+1)
 
+typedef BOOL(WINAPI *LPFN_ISWOW64PROCESS) (HANDLE, PBOOL);
+
+LPFN_ISWOW64PROCESS fnIsWow64Process = nullptr;
+
+BOOL IsWow64(HANDLE hProcess)
+{
+    BOOL bIsWow64 = FALSE;
+
+    //IsWow64Process is not available on all supported versions of Windows.
+    //Use GetModuleHandle to get a handle to the DLL that contains the function
+    //and GetProcAddress to get a pointer to the function if available.
+
+    if (!fnIsWow64Process)
+    {
+        fnIsWow64Process = (LPFN_ISWOW64PROCESS)GetProcAddress(
+            GetModuleHandle(TEXT("kernel32")), "IsWow64Process");
+    }
+
+    if (NULL != fnIsWow64Process)
+    {
+        if (!fnIsWow64Process(hProcess, &bIsWow64))
+        {
+            //handle error
+        }
+    }
+    return bIsWow64;
+}
+
 // CAboutDlg dialog used for App About
 
 class CAboutDlg : public CDialogEx
@@ -118,12 +146,18 @@ BOOL CProcessMonitorDlg::OnInitDialog()
     return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
+#define COL_PID 0
+#define COL_BIT 1
+#define COL_STS 2
+#define COL_NAM 3
+
 void CProcessMonitorDlg::InitProcessListControl()
 {
     m_lcProcess.SetExtendedStyle(LVS_EX_GRIDLINES | LVS_EX_FULLROWSELECT);
-    m_lcProcess.InsertColumn(0, _T("Process ID"));
-    m_lcProcess.InsertColumn(1, _T("Status"));
-    m_lcProcess.InsertColumn(2, _T("Name"));
+    m_lcProcess.InsertColumn(COL_PID, _T("Process ID"));
+    m_lcProcess.InsertColumn(COL_BIT, _T("Bitness"));
+    m_lcProcess.InsertColumn(COL_STS, _T("Status"));
+    m_lcProcess.InsertColumn(COL_NAM, _T("Name"));
 
     int numCols = m_lcProcess.GetHeaderCtrl()->GetItemCount();
     for (int i = 0; i < numCols; i++)
@@ -216,7 +250,7 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
                 if (event_type == APPLICATION_FOCUS)
                 {
                     if (m_focus_index >= 0)
-                        m_lcProcess.SetItemText(m_focus_index, 1, _T(""));
+                        m_lcProcess.SetItemText(m_focus_index, COL_STS, _T(""));
                 }
 
                 application_info info;
@@ -227,15 +261,68 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
                 id_str.Format(_T("%d"), process_id);
                 path_str.Format(_T("%s"), info.path.c_str());
                 m_lcProcess.InsertItem((int)m_process_id_list.size(), id_str);
-                m_lcProcess.SetItemText((int)m_process_id_list.size(), 2, path_str);
+                m_lcProcess.SetItemText((int)m_process_id_list.size(), COL_NAM, path_str);
+
+                BOOL iswow64 = FALSE;
+                HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION |
+                    PROCESS_VM_READ,
+                    FALSE, process_id);
+                if (NULL != hProcess)
+                {
+                    iswow64 = IsWow64(hProcess);
+                    m_lcProcess.SetItemText((int)m_process_id_list.size(), COL_BIT, iswow64 ? _T("32") : _T("64"));
+                    CloseHandle(hProcess);
+                }
 
                 m_process_id_list.push_back(info);
 
                 if (event_type == APPLICATION_FOCUS)
                 {
                     m_focus_index = (int)m_process_id_list.size() - 1;
-                    m_lcProcess.SetItemText(m_focus_index, 1, _T("Focus"));
+                    m_lcProcess.SetItemText(m_focus_index, COL_STS, _T("Focus"));
                 }
+
+
+#if 1
+                if (!info.path.empty())
+                {
+                    const auto target = L"D3D11Application.exe";
+                    auto found = wcsstr(info.path.c_str(), target) != nullptr;
+
+                    if (found)
+                    {
+                        TCHAR command_line[MAX_PATH];
+                        if (iswow64)
+                        {
+                            _stprintf_s(command_line, _T("msghook32.exe pid= %d"), process_id);
+                        }
+                        else
+                        {
+                            _stprintf_s(command_line, _T("msghook64.exe pid= %d"), process_id);
+                        }
+
+                        TRACE(_T("CreatProcess(%s)\n"), command_line);
+
+                        STARTUPINFO si;
+                        PROCESS_INFORMATION pi;
+
+                        ZeroMemory(&si, sizeof(si));
+                        si.cb = sizeof(si);
+                        ZeroMemory(&pi, sizeof(pi));
+
+                        BOOL b = CreateProcess(nullptr, command_line, nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi);
+
+                        WaitForSingleObject(pi.hProcess, INFINITE);
+                        CloseHandle(pi.hProcess);
+                        CloseHandle(pi.hThread);
+
+                        TRACE(_T("done %d\n"), b);
+                    }
+                }
+
+#endif
+
+
             }
         }
         else
@@ -249,9 +336,9 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
             else if (event_type == APPLICATION_FOCUS)
             {
                 if (m_focus_index >= 0)
-                    m_lcProcess.SetItemText(m_focus_index, 1, _T(""));
+                    m_lcProcess.SetItemText(m_focus_index, COL_STS, _T(""));
                 m_focus_index = index;
-                m_lcProcess.SetItemText(m_focus_index, 1, _T("Focus"));
+                m_lcProcess.SetItemText(m_focus_index, COL_STS, _T("Focus"));
             }
         }
 
