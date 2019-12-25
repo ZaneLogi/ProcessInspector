@@ -7,6 +7,7 @@
 #include "ProcessMonitorDlg.h"
 #include "afxdialogex.h"
 #include <algorithm>
+#include <psapi.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -89,6 +90,7 @@ void CProcessMonitorDlg::DoDataExchange(CDataExchange* pDX)
 {
     CDialogEx::DoDataExchange(pDX);
     DDX_Control(pDX, IDC_LIST_PROCESS, m_lcProcess);
+    DDX_Control(pDX, IDC_EC_LOG, m_ecLog);
 }
 
 BEGIN_MESSAGE_MAP(CProcessMonitorDlg, CDialogEx)
@@ -136,12 +138,19 @@ BOOL CProcessMonitorDlg::OnInitDialog()
     // TODO: Add extra initialization here
     BEGIN_OBJ_MAP(CProcessMonitorDlg);
     OBJ_DEFINE_SCALEABLE(IDC_LIST_PROCESS);
+    OBJ_DEFINE_BOTTOM(IDC_EC_LOG);
     OBJ_DEFINE_BOTTOM_RIGHT(IDOK);
     OBJ_DEFINE_BOTTOM_RIGHT(IDCANCEL);
     END_OBJ_MAP();
 
+    m_ecLog.SetFont(CFont::FromHandle((HFONT)::GetStockObject(ANSI_FIXED_FONT)));
+
     InitProcessListControl();
     process_watcher::instance()->set_window_handle(GetSafeHwnd(), APPLICATION_EVENT_MSG);
+
+    CTime t = CTime::GetCurrentTime();
+    CString s = t.Format(_T("%F %T"));
+    Log(_T("%s\r\n"), s);
 
     return TRUE;  // return TRUE  unless you set the focus to a control
 }
@@ -163,6 +172,42 @@ void CProcessMonitorDlg::InitProcessListControl()
     for (int i = 0; i < numCols; i++)
     {
         m_lcProcess.SetColumnWidth(i, LVSCW_AUTOSIZE_USEHEADER);
+    }
+}
+
+void CProcessMonitorDlg::Log(LPCTSTR lpszFormat, ...)
+{
+    static std::vector<TCHAR> Buffer;
+    static int nBufSize = 16;
+
+    const int MAX_SIZE = 65536;
+
+    va_list args;
+    va_start(args, lpszFormat);
+
+    int nSize = -1;
+    while (1)
+    {
+        Buffer.resize(nBufSize);
+        nSize = _vsntprintf_s(&Buffer[0], nBufSize - 1, nBufSize - 2, lpszFormat, args);
+        if (nSize == -1 && nBufSize < MAX_SIZE)
+            nBufSize *= 2;
+        else
+            break;
+    }
+
+    va_end(args);
+
+    if (nSize >= 0)
+    {
+        Buffer[nSize] = _T('\0');
+        int len = m_ecLog.GetWindowTextLength();
+        m_ecLog.SetSel(len, len);
+        m_ecLog.ReplaceSel(&Buffer[0]);
+    }
+    else
+    {
+        OutputDebugString(_T("###Cannot create a debugging string###"));
     }
 }
 
@@ -263,12 +308,34 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
                 m_lcProcess.InsertItem((int)m_process_id_list.size(), id_str);
                 m_lcProcess.SetItemText((int)m_process_id_list.size(), COL_NAM, path_str);
 
+                BOOL hasD3D11 = FALSE;
                 BOOL iswow64 = FALSE;
                 HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION |
                     PROCESS_VM_READ,
                     FALSE, process_id);
                 if (NULL != hProcess)
                 {
+                    HMODULE hMods[1024];
+                    DWORD cbNeeded;
+
+                    // Get a list of all the modules in this process.
+                    if (EnumProcessModules(hProcess, hMods, sizeof(hMods), &cbNeeded))
+                    {
+                        for (unsigned int i = 0; i < (cbNeeded / sizeof(HMODULE)); i++)
+                        {
+                            TCHAR moduleName[MAX_PATH];
+
+                            // Get the full path to the module's file.
+
+                            if (GetModuleFileNameEx(hProcess, hMods[i], moduleName,
+                                sizeof(moduleName) / sizeof(TCHAR)))
+                            {
+                                if (0 == _tcsicmp(_tcsrchr(moduleName, _T('\\')), _T("\\d3d11.dll")))
+                                    hasD3D11 = TRUE;
+                            }
+                        }
+                    }
+
                     iswow64 = IsWow64(hProcess);
                     m_lcProcess.SetItemText((int)m_process_id_list.size(), COL_BIT, iswow64 ? _T("32") : _T("64"));
                     CloseHandle(hProcess);
@@ -284,8 +351,9 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
 
 
 #if 1
-                if (!info.path.empty())
+                if (!info.path.empty() && hasD3D11)
                 {
+                    Log(_T("Process %d, Name %s has d3d11.dll\r\n"), process_id, info.path.c_str());
                     const auto target = L"D3D11Application.exe";
                     auto found = wcsstr(info.path.c_str(), target) != nullptr;
 
@@ -341,6 +409,11 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
                 m_lcProcess.SetItemText(m_focus_index, COL_STS, _T("Focus"));
             }
         }
+
+        Log(_T("PID %d, %s\r\n"), process_id,
+            event_type == APPLICATION_START ? _T("start") :
+            event_type == APPLICATION_STOP ? _T("stop") :
+            event_type == APPLICATION_FOCUS ? _T("focus") : _T("unknown"));
 
     }
 

@@ -8,6 +8,7 @@
 #include "DynObj.h"
 #include "afxcmn.h"
 #include "process_watcher.h"
+#include "afxwin.h"
 
 // CProcessMonitorDlg dialog
 class CProcessMonitorDlg : public CDialogEx
@@ -29,6 +30,7 @@ public:
 protected:
     HICON m_hIcon;
     CListCtrl m_lcProcess;
+    CEdit m_ecLog;
 
     // Generated message map functions
     virtual BOOL OnInitDialog();
@@ -45,6 +47,7 @@ protected:
     afx_msg LRESULT OnApplicationEvent(WPARAM wParam, LPARAM lParam);
 
     void InitProcessListControl();
+    void Log(LPCTSTR lpszFormat, ...);
 
 private:
     std::vector<application_info> m_process_id_list;

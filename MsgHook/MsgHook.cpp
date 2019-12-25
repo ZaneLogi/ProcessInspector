@@ -26,27 +26,45 @@ BOOL EnablePrivilege(BOOL enable)
     return TRUE;
 }
 
-DWORD GetProcessThreadID(DWORD pid)
+DWORD GetProcessMainThreadID(DWORD pid)
 {
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, pid);
     THREADENTRY32 threadentry;
     threadentry.dwSize = sizeof(threadentry);
 
     BOOL hasNext = Thread32First(snapshot, &threadentry);
-    DWORD threadID = 0;
+    DWORD mainThreadID = 0;
+    ULONGLONG minCreateTime = MAXULONGLONG;
+
     do
     {
+        // find the thread owned by the process id and its creation time is the earliest one.
         if (threadentry.th32OwnerProcessID == pid)
         {
-            threadID = threadentry.th32ThreadID;
-            break;
+            HANDLE hThread = OpenThread(THREAD_QUERY_INFORMATION,
+                TRUE, threadentry.th32ThreadID);
+            if (hThread)
+            {
+                FILETIME afTimes[4] = { 0 };
+                if (GetThreadTimes(hThread,
+                    &afTimes[0], &afTimes[1], &afTimes[2], &afTimes[3]))
+                {
+                    ULARGE_INTEGER time = { afTimes[0].dwLowDateTime, afTimes[0].dwHighDateTime };
+                    if (time.QuadPart && time.QuadPart < minCreateTime)
+                    {
+                        minCreateTime = time.QuadPart;
+                        mainThreadID = threadentry.th32ThreadID;
+                    }
+                }
+                CloseHandle(hThread);
+            }
         }
         hasNext = Thread32Next(snapshot, &threadentry);
     } while (hasNext);
 
     CloseHandle(snapshot);
 
-    return threadID;
+    return mainThreadID;
 }
 
 
@@ -74,7 +92,7 @@ HHOOK InjectDll(DWORD pid, LPCTSTR dllPath)
     DWORD threadID = 0;
     if (pid != 0)
     {
-        threadID = GetProcessThreadID(pid);
+        threadID = GetProcessMainThreadID(pid);
         printf("MainThreadID: %d\n", threadID);
 
         if (threadID == 0)
@@ -88,6 +106,18 @@ HHOOK InjectDll(DWORD pid, LPCTSTR dllPath)
     printf("hook: %p\n", hook);
 
     FreeLibrary(module);
+
+    // before UnhookWindowsHookEx, need to make sure the injection is done
+    if (hook  != nullptr)
+    {
+        const int WAIT_COUNT = 10;
+        for (auto i = 0; i < WAIT_COUNT; i++)
+        {
+            // post the message to the thread to make sure the hook function in the dll be called
+            PostThreadMessage(threadID, WM_USER + 0x123, 0, (LPARAM)hook);
+            Sleep(500);
+        }
+    }
 
     return hook;
 }
@@ -172,8 +202,7 @@ int _tmain(int argc, TCHAR** argv)
     {
         //printf("Please hit return/enter key to unload DLL.\n");
         //getchar();
-        Sleep(5 * 1000);
-
+        //Sleep(5 * 1000);
         UnhookWindowsHookEx(hook);
     }
     else
