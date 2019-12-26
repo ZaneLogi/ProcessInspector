@@ -362,11 +362,11 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
                         TCHAR command_line[MAX_PATH];
                         if (iswow64)
                         {
-                            _stprintf_s(command_line, _T("msghook32.exe pid= %d"), process_id);
+                            _stprintf_s(command_line, _T("hookhelper32.exe /PID=%d /LOG"), process_id);
                         }
                         else
                         {
-                            _stprintf_s(command_line, _T("msghook64.exe pid= %d"), process_id);
+                            _stprintf_s(command_line, _T("hookhelper64.exe /PID=%d /LOG"), process_id);
                         }
 
                         TRACE(_T("CreatProcess(%s)\n"), command_line);
@@ -380,7 +380,7 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
 
                         BOOL b = CreateProcess(nullptr, command_line, nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi);
 
-                        WaitForSingleObject(pi.hProcess, INFINITE);
+                        //WaitForSingleObject(pi.hProcess, INFINITE);
                         CloseHandle(pi.hProcess);
                         CloseHandle(pi.hThread);
 
