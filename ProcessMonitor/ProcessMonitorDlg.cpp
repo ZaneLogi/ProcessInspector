@@ -152,6 +152,8 @@ BOOL CProcessMonitorDlg::OnInitDialog()
     CString s = t.Format(_T("%F %T"));
     Log(_T("%s\r\n"), s);
 
+    enable_privilege(TRUE);
+
     return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
@@ -301,6 +303,10 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
                 application_info info;
                 info.process_id = process_id;
                 info.path = get_executable_path_by_process_id(process_id);
+                if (info.path.empty())
+                {
+                    Log(_T("path err = %s\r\n"), get_error_string(L"get_executable_path_by_process_id").c_str());
+                }
 
                 CString id_str, path_str;
                 id_str.Format(_T("%d"), process_id);
@@ -354,10 +360,15 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
                 if (!info.path.empty() && hasD3D11)
                 {
                     Log(_T("Process %d, Name %s has d3d11.dll\r\n"), process_id, info.path.c_str());
-                    const auto target = L"D3D11Application.exe";
-                    auto found = wcsstr(info.path.c_str(), target) != nullptr;
+                    const auto targets =
+                    {
+                        L"D3D11Application.exe",
+                        L"D3DApp.exe"
+                    };
+                    auto found_itr = std::find_if(targets.begin(), targets.end(),
+                        [&info](const auto& i) { return wcsstr(info.path.c_str(), i) != nullptr; });
 
-                    if (found)
+                    if (found_itr != targets.end())
                     {
                         TCHAR command_line[MAX_PATH];
                         if (iswow64)

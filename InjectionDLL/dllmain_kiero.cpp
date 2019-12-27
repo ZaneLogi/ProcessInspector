@@ -1116,14 +1116,14 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pThis, UINT SyncInterval, UINT F
 
 
 
-DWORD WINAPI HookThread(LPVOID lpThreadParameter)
+DWORD WINAPI HookD3D(LPVOID lpThreadParameter)
 {
     /*{
         wchar_t* test_string = L"Enter hook thread.\r\n";
         WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE), test_string, (DWORD)wcslen(test_string), nullptr, nullptr);
     }*/
 
-    LOG << "enter kieroExampleThread\n";
+    LOG << "enter HookD3D\n";
     bool d3d9 = false;
     bool d3d10 = false;
     bool d3d11 = false;
@@ -1162,8 +1162,6 @@ DWORD WINAPI HookThread(LPVOID lpThreadParameter)
         LOG << "found vulcan-1.dll\n";
         vulcan = true;
     }
-
-    MH_Initialize();
 
     // try to hook dxgi
     if (d3d11_method_table::instance()->init())
@@ -1234,10 +1232,129 @@ DWORD WINAPI HookThread(LPVOID lpThreadParameter)
     }
     */
 
-    LOG << "exit kieroExampleThread\n";
+    LOG << "exit HookD3D\n";
 
     return 0;
 }
+
+#include <mutex>
+#include <thread>
+
+class dll_hook_thread
+{
+public:
+    static dll_hook_thread* instance();
+    ~dll_hook_thread();
+
+    void start();
+    void stop();
+
+private:
+    dll_hook_thread();
+    dll_hook_thread(const dll_hook_thread&) = delete;
+
+    static DWORD WINAPI _thread_routine(PVOID);
+    void _event_loop(void);
+
+private:
+    std::mutex m_mutex;
+    HANDLE m_stop_event;
+    HANDLE m_thread_handle = nullptr;
+};
+
+dll_hook_thread* dll_hook_thread::instance()
+{
+    static dll_hook_thread this_instance;
+    return &this_instance;
+}
+
+dll_hook_thread::dll_hook_thread()
+{
+    const std::lock_guard<std::mutex> lock(m_mutex);
+    m_stop_event = CreateEvent(NULL, FALSE, FALSE, NULL);
+}
+
+dll_hook_thread::~dll_hook_thread()
+{
+    const std::lock_guard<std::mutex> lock(m_mutex);
+    CloseHandle(m_stop_event);
+}
+
+void dll_hook_thread::start()
+{
+    const std::lock_guard<std::mutex> lock(m_mutex);
+    LOG << "START dll hook thread.\n";
+    m_thread_handle = CreateThread(nullptr, 0, _thread_routine, nullptr, 0, nullptr);
+}
+
+void dll_hook_thread::stop()
+{
+    const std::lock_guard<std::mutex> lock(m_mutex);
+    LOG << "STOP dll hook thread.\n";
+    // signal the thread to stop, and then wait
+    SetEvent(m_stop_event);
+    if (m_thread_handle != nullptr)
+    {
+        WaitForSingleObject(m_thread_handle, INFINITE);
+        CloseHandle(m_thread_handle);
+        m_thread_handle = nullptr;
+    }
+}
+
+DWORD dll_hook_thread::_thread_routine(PVOID pv)
+{
+    dll_hook_thread* pThis = (dll_hook_thread*)pv;
+    pThis->_event_loop();
+    return 0;
+}
+
+void dll_hook_thread::_event_loop(void)
+{
+    LOG << ">>> Enter _event_loop\n";
+
+    MH_Initialize();
+    HookD3D(0);
+
+    bool active = true;
+    while (active)
+    {
+        switch (MsgWaitForMultipleObjects(1, &m_stop_event, FALSE, INFINITE, QS_ALLINPUT))
+        {
+        case WAIT_OBJECT_0:
+            // stop event
+            active = false;
+            break;
+
+        case WAIT_OBJECT_0 + 1:
+            // other event
+            MSG message;
+            while (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE))
+            {
+                if (message.message == WM_QUIT)
+                {
+                    PostQuitMessage(static_cast<int>(message.wParam));
+                    active = false;
+                    break;
+                }
+                TranslateMessage(&message);
+                DispatchMessage(&message);
+            }
+
+        default:
+            break;
+        }
+    }
+
+    if (g_dxgiSwapChainPresentHook)
+    {
+        g_dxgiSwapChainPresentHook.reset(nullptr);
+    }
+
+    MH_Uninitialize();
+
+    LOG << "<<< Exit _event_loop\n";
+}
+
 
 #if 1
 
@@ -1259,7 +1376,10 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
 
         LoadLibraryA(modulePath); // call this function so the dll would be kept in the injected process when the injection helper quits.
 
-        CreateThread(NULL, 0, HookThread, NULL, 0, NULL);
+
+        //CreateThread(NULL, 0, HookThread, NULL, 0, NULL);
+
+        dll_hook_thread::instance()->start();
 
         /*AllocConsole();
         {
@@ -1284,10 +1404,7 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
         //    originalD3D11Present = nullptr;
         //}
 
-        if (g_dxgiSwapChainPresentHook)
-        {
-            g_dxgiSwapChainPresentHook.reset(nullptr);
-        }
+        dll_hook_thread::instance()->stop();
 
         //FreeConsole();
         break;

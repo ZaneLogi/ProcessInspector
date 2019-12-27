@@ -54,3 +54,5 @@
 
 #include <string>
 std::wstring get_executable_path_by_process_id(int process_id);
+std::wstring get_error_string(const wchar_t* function_name);
+BOOL enable_privilege(BOOL enable);
