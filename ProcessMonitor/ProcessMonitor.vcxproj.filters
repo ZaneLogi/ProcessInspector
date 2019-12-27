@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="PipeServer">
+      <UniqueIdentifier>{31c77b98-19ce-4b26-825e-a3b4397aca07}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -42,6 +45,24 @@
     <ClInclude Include="event_sink.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="demo_connection.h">
+      <Filter>PipeServer</Filter>
+    </ClInclude>
+    <ClInclude Include="demo_server.h">
+      <Filter>PipeServer</Filter>
+    </ClInclude>
+    <ClInclude Include="local_server.h">
+      <Filter>PipeServer</Filter>
+    </ClInclude>
+    <ClInclude Include="local_server_connection.h">
+      <Filter>PipeServer</Filter>
+    </ClInclude>
+    <ClInclude Include="local_server_connection_win.h">
+      <Filter>PipeServer</Filter>
+    </ClInclude>
+    <ClInclude Include="local_server_win.h">
+      <Filter>PipeServer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ProcessMonitor.cpp">
@@ -58,6 +79,24 @@
     </ClCompile>
     <ClCompile Include="event_sink.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="demo_connection.cpp">
+      <Filter>PipeServer</Filter>
+    </ClCompile>
+    <ClCompile Include="demo_server.cpp">
+      <Filter>PipeServer</Filter>
+    </ClCompile>
+    <ClCompile Include="local_server.cpp">
+      <Filter>PipeServer</Filter>
+    </ClCompile>
+    <ClCompile Include="local_server_connection.cpp">
+      <Filter>PipeServer</Filter>
+    </ClCompile>
+    <ClCompile Include="local_server_connection_win.cpp">
+      <Filter>PipeServer</Filter>
+    </ClCompile>
+    <ClCompile Include="local_server_win.cpp">
+      <Filter>PipeServer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

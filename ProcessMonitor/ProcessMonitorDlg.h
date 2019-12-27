@@ -7,8 +7,9 @@
 #include <vector>
 #include "DynObj.h"
 #include "afxcmn.h"
-#include "process_watcher.h"
 #include "afxwin.h"
+#include "process_watcher.h"
+#include "demo_server.h"
 
 // CProcessMonitorDlg dialog
 class CProcessMonitorDlg : public CDialogEx
@@ -44,7 +45,11 @@ protected:
     afx_msg void OnSize(UINT, int, int);                // ON_WM_SIZE()
     afx_msg void OnGetMinMaxInfo(MINMAXINFO* lpMMI);    // ON_WM_GETMINMAXINFO()
 
+    afx_msg void OnBnClickedOk();
+    afx_msg void OnBnClickedCancel();
+
     afx_msg LRESULT OnApplicationEvent(WPARAM wParam, LPARAM lParam);
+    afx_msg LRESULT OnServerMessage(WPARAM wParam, LPARAM lParam);
 
     void InitProcessListControl();
     void Log(LPCTSTR lpszFormat, ...);
@@ -52,4 +57,6 @@ protected:
 private:
     std::vector<application_info> m_process_id_list;
     int m_focus_index = -1;
+    demo_server m_server;
+
 };

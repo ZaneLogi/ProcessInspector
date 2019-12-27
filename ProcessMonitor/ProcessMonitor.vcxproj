@@ -199,8 +199,14 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="demo_connection.h" />
+    <ClInclude Include="demo_server.h" />
     <ClInclude Include="DynObj.h" />
     <ClInclude Include="event_sink.h" />
+    <ClInclude Include="local_server.h" />
+    <ClInclude Include="local_server_connection.h" />
+    <ClInclude Include="local_server_connection_win.h" />
+    <ClInclude Include="local_server_win.h" />
     <ClInclude Include="ProcessMonitor.h" />
     <ClInclude Include="ProcessMonitorDlg.h" />
     <ClInclude Include="process_watcher.h" />
@@ -209,7 +215,13 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="demo_connection.cpp" />
+    <ClCompile Include="demo_server.cpp" />
     <ClCompile Include="event_sink.cpp" />
+    <ClCompile Include="local_server.cpp" />
+    <ClCompile Include="local_server_connection.cpp" />
+    <ClCompile Include="local_server_connection_win.cpp" />
+    <ClCompile Include="local_server_win.cpp" />
     <ClCompile Include="ProcessMonitor.cpp" />
     <ClCompile Include="ProcessMonitorDlg.cpp" />
     <ClCompile Include="process_watcher.cpp" />

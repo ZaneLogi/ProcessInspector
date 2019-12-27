@@ -101,6 +101,9 @@ BEGIN_MESSAGE_MAP(CProcessMonitorDlg, CDialogEx)
     ON_WM_SIZE()
     ON_WM_GETMINMAXINFO()
     ON_MESSAGE(APPLICATION_EVENT_MSG, &CProcessMonitorDlg::OnApplicationEvent)
+    ON_MESSAGE(WM_PIPE_SERVER, &CProcessMonitorDlg::OnServerMessage)
+    ON_BN_CLICKED(IDOK, &CProcessMonitorDlg::OnBnClickedOk)
+    ON_BN_CLICKED(IDCANCEL, &CProcessMonitorDlg::OnBnClickedCancel)
 END_MESSAGE_MAP()
 
 
@@ -154,7 +157,22 @@ BOOL CProcessMonitorDlg::OnInitDialog()
 
     enable_privilege(TRUE);
 
+    m_server.set_main_window(GetSafeHwnd());
+    m_server.start();
+
     return TRUE;  // return TRUE  unless you set the focus to a control
+}
+
+void CProcessMonitorDlg::OnBnClickedOk()
+{
+    // TODO: Add your control notification handler code here
+    m_server.stop();
+    CDialogEx::OnOK();
+}
+
+void CProcessMonitorDlg::OnBnClickedCancel()
+{
+    OnBnClickedOk();
 }
 
 #define COL_PID 0
@@ -428,5 +446,18 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
 
     }
 
+    return 0;
+}
+
+LRESULT CProcessMonitorDlg::OnServerMessage(WPARAM wParam, LPARAM lParam)
+{
+    switch (wParam) {
+    case COMMAND_INIT:
+        Log(_T("Process %d has the injection dll.\r\n"), lParam);
+        break;
+    case COMMAND_BYE:
+        Log(_T("The injection dll in the process %d is unloaded.\r\n"), lParam);
+        break;
+    }
     return 0;
 }

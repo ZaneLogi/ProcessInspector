@@ -11,6 +11,8 @@
 
 #include "../minhook/include/MinHook.h"
 
+#include "server_connection.h"
+
 #include <d3d9.h>
 #include <d3d11.h>
 #include <d3dcompiler.h>
@@ -1357,6 +1359,7 @@ void dll_hook_thread::_event_loop(void)
 
 
 #if 1
+static server_connection g_server;
 
 BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
 {
@@ -1386,6 +1389,24 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
             wchar_t* test_string = L"injection dll console.\r\n";
             WriteConsole(GetStdHandle(STD_OUTPUT_HANDLE), test_string, (DWORD)wcslen(test_string), nullptr, nullptr);
         }*/
+
+        if (!g_server.connectToPipe())
+        {
+            LOG << "Failed to connect to the server\n";
+        }
+        else if (!g_server.startReading())
+        {
+            LOG << "Failed to start reading from the server\n";
+        }
+        else
+        {
+            LOG << "Succeeded to connect to the server\n";
+            cmd_init_packet packet;
+            packet.hdr.packet_type = COMMAND_INIT;
+            packet.hdr.payload_size = sizeof(packet.process_id);
+            packet.process_id = GetCurrentProcessId();
+            g_server.write(&packet, sizeof(packet.hdr) + packet.hdr.payload_size);
+        }
         break;
 
     case DLL_PROCESS_DETACH:
@@ -1405,6 +1426,16 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
         //}
 
         dll_hook_thread::instance()->stop();
+
+        {
+            cmd_bye_packet packet;
+            packet.hdr.packet_type = COMMAND_BYE;
+            packet.hdr.payload_size = sizeof(packet.process_id);
+            packet.process_id = GetCurrentProcessId();
+            g_server.write(&packet, sizeof(packet.hdr) + packet.hdr.payload_size);
+
+            g_server.shutdownAndCleanUp();
+        }
 
         //FreeConsole();
         break;
