@@ -1258,10 +1258,16 @@ private:
     static DWORD WINAPI _thread_routine(PVOID);
     void _event_loop(void);
 
+    static VOID WINAPI _timer_routine(PVOID, BOOLEAN);
+    void _on_timer(BOOLEAN);
+
 private:
     std::mutex m_mutex;
     HANDLE m_stop_event;
     HANDLE m_thread_handle = nullptr;
+    DWORD m_thread_id = 0;
+    HANDLE m_timer_queue = nullptr;
+    HANDLE m_timer = nullptr;
 };
 
 dll_hook_thread* dll_hook_thread::instance()
@@ -1286,7 +1292,7 @@ void dll_hook_thread::start()
 {
     const std::lock_guard<std::mutex> lock(m_mutex);
     LOG << "START dll hook thread.\n";
-    m_thread_handle = CreateThread(nullptr, 0, _thread_routine, this, 0, nullptr);
+    m_thread_handle = CreateThread(nullptr, 0, _thread_routine, this, 0, &m_thread_id);
 }
 
 void dll_hook_thread::stop()
@@ -1311,12 +1317,28 @@ DWORD dll_hook_thread::_thread_routine(PVOID pv)
     return 0;
 }
 
+VOID dll_hook_thread::_timer_routine(PVOID pv, BOOLEAN TimerOrWaitFired)
+{
+    dll_hook_thread* pThis = (dll_hook_thread*)pv;
+    pThis->_on_timer(TimerOrWaitFired);
+}
+
+void dll_hook_thread::_on_timer(BOOLEAN)
+{
+    ::PostThreadMessage(m_thread_id, WM_TIMER, 0, 0);
+}
+
 void dll_hook_thread::_event_loop(void)
 {
     LOG << ">>> Enter _event_loop\n";
 
     MH_Initialize();
     HookD3D(0);
+
+    const DWORD dueTime = 1000;
+    const DWORD period = 5000;
+    m_timer_queue = CreateTimerQueue();
+    CreateTimerQueueTimer(&m_timer, m_timer_queue, _timer_routine, this, dueTime, period, 0);
 
     HANDLE events[] = { m_stop_event };
 
@@ -1343,6 +1365,10 @@ void dll_hook_thread::_event_loop(void)
                     LOG << "stop the thread loop 2.\n";
                     break;
                 }
+                else if (message.message == WM_TIMER)
+                {
+                    LOG << "timer event!\n";
+                }
                 TranslateMessage(&message);
                 DispatchMessage(&message);
             }
@@ -1351,6 +1377,9 @@ void dll_hook_thread::_event_loop(void)
             break;
         }
     }
+
+    DeleteTimerQueueTimer(m_timer_queue, m_timer, INVALID_HANDLE_VALUE);
+    DeleteTimerQueue(m_timer_queue);
 
     if (g_dxgiSwapChainPresentHook)
     {
@@ -1416,7 +1445,6 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
 
     case DLL_PROCESS_DETACH:
         GetModuleFileNameA(GetModuleHandle(NULL), processPath, MAX_PATH);
-        LOG << "Unload DLL from " << processPath << "\n";
         if (oEndScene != nullptr)
         {
             //kiero::unbind(42);
@@ -1443,6 +1471,7 @@ BOOL WINAPI DllMain(HINSTANCE hInstance, DWORD fdwReason, LPVOID)
         }
 
         //FreeConsole();
+        LOG << "Unload DLL from " << processPath << "\n";
         break;
     }
 
