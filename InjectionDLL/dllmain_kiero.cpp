@@ -1286,7 +1286,7 @@ void dll_hook_thread::start()
 {
     const std::lock_guard<std::mutex> lock(m_mutex);
     LOG << "START dll hook thread.\n";
-    m_thread_handle = CreateThread(nullptr, 0, _thread_routine, nullptr, 0, nullptr);
+    m_thread_handle = CreateThread(nullptr, 0, _thread_routine, this, 0, nullptr);
 }
 
 void dll_hook_thread::stop()
@@ -1297,6 +1297,7 @@ void dll_hook_thread::stop()
     SetEvent(m_stop_event);
     if (m_thread_handle != nullptr)
     {
+        LOG << "waiting the hook thread.\n";
         WaitForSingleObject(m_thread_handle, INFINITE);
         CloseHandle(m_thread_handle);
         m_thread_handle = nullptr;
@@ -1317,17 +1318,20 @@ void dll_hook_thread::_event_loop(void)
     MH_Initialize();
     HookD3D(0);
 
+    HANDLE events[] = { m_stop_event };
+
     bool active = true;
     while (active)
     {
-        switch (MsgWaitForMultipleObjects(1, &m_stop_event, FALSE, INFINITE, QS_ALLINPUT))
+        switch (MsgWaitForMultipleObjects(_countof(events), events, FALSE, INFINITE, QS_ALLINPUT))
         {
         case WAIT_OBJECT_0:
             // stop event
             active = false;
+            LOG << "stop the thread loop 1.\n";
             break;
 
-        case WAIT_OBJECT_0 + 1:
+        case WAIT_OBJECT_0 + _countof(events):
             // other event
             MSG message;
             while (PeekMessage(&message, nullptr, 0, 0, PM_REMOVE))
@@ -1336,6 +1340,7 @@ void dll_hook_thread::_event_loop(void)
                 {
                     PostQuitMessage(static_cast<int>(message.wParam));
                     active = false;
+                    LOG << "stop the thread loop 2.\n";
                     break;
                 }
                 TranslateMessage(&message);
