@@ -16,6 +16,7 @@
 #include <d3d9.h>
 #include <d3d11.h>
 #include <d3dcompiler.h>
+#include <dxgi1_2.h>
 
 #include <directxmath.h>
 using namespace DirectX;
@@ -24,9 +25,15 @@ using namespace DirectX;
 #pragma comment(lib, "dxgi.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 
-
 typedef HRESULT(STDMETHODCALLTYPE *DXGISwapChainPresentType)(IDXGISwapChain *, UINT, UINT);
+typedef HRESULT(STDMETHODCALLTYPE *DXGISwapChainResizeBuffersType)(IDXGISwapChain *, UINT, UINT, UINT, DXGI_FORMAT, UINT);
+typedef HRESULT(STDMETHODCALLTYPE *DXGISwapChainResizeTargetType)(IDXGISwapChain *, const DXGI_MODE_DESC *);
+typedef HRESULT(STDMETHODCALLTYPE *DXGISwapChainPresent1Type)(IDXGISwapChain1 *swapChain, UINT SyncInterval, UINT PresentFlags, _In_ const DXGI_PRESENT_PARAMETERS *pPresentParameters);
+
+
 std::unique_ptr<ApiHook<DXGISwapChainPresentType>> g_dxgiSwapChainPresentHook;
+
+
 
 
 
@@ -830,8 +837,8 @@ long __stdcall hookD3D11Present(IDXGISwapChain* pSwapChain, UINT SyncInterval, U
     }
 
     //return originalD3D11Present(pSwapChain, SyncInterval, Flags);
-    //return S_OK;
-    return g_dxgiSwapChainPresentHook->callOrginal<HRESULT>(pSwapChain, SyncInterval, Flags);
+    return S_OK;
+    //return g_dxgiSwapChainPresentHook->callOrginal<HRESULT>(pSwapChain, SyncInterval, Flags);
 }
 
 #endif
@@ -1164,7 +1171,7 @@ DWORD WINAPI HookD3D(LPVOID lpThreadParameter)
         LOG << "found vulcan-1.dll\n";
         vulcan = true;
     }
-
+    /*
     // try to hook dxgi
     if (d3d11_method_table::instance()->init())
     {
@@ -1192,6 +1199,7 @@ DWORD WINAPI HookD3D(LPVOID lpThreadParameter)
     {
         LOG << "not d3d11 or d3d10\n";
     }
+    */
 
     if (d3d9_method_table::instance()->init())
     {
@@ -1238,6 +1246,222 @@ DWORD WINAPI HookD3D(LPVOID lpThreadParameter)
 
     return 0;
 }
+
+
+
+class dxgi_hook
+{
+public:
+    static dxgi_hook* instance();
+    ~dxgi_hook();
+
+    bool init();
+    void deinit();
+
+private:
+    dxgi_hook() = default;
+    dxgi_hook(const dxgi_hook&) = delete;
+
+    static HRESULT STDMETHODCALLTYPE SwapChainPresent(IDXGISwapChain *, UINT, UINT);
+    static HRESULT STDMETHODCALLTYPE SwapChainResizeBuffers(IDXGISwapChain *, UINT, UINT, UINT, DXGI_FORMAT, UINT);
+    static HRESULT STDMETHODCALLTYPE SwapChainResizeTarget(IDXGISwapChain *, const DXGI_MODE_DESC *);
+    static HRESULT STDMETHODCALLTYPE SwapChainPresent1(IDXGISwapChain1 *, UINT, UINT, const DXGI_PRESENT_PARAMETERS *);
+
+    HRESULT present_hook(IDXGISwapChain *swap, UINT SyncInterval, UINT Flags);
+    HRESULT present1_hook(IDXGISwapChain1 *swap, UINT SyncInterval, UINT PresentFlags, _In_ const DXGI_PRESENT_PARAMETERS *pPresentParameters);
+    HRESULT resize_buffers_hook(IDXGISwapChain *swap, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags);
+    HRESULT resize_target_hook(IDXGISwapChain *swap, __in const DXGI_MODE_DESC *pNewTargetParameters);
+
+private:
+    std::unique_ptr<ApiHook<DXGISwapChainPresentType>> m_dxgiSwapChainPresentHook;
+    std::unique_ptr<ApiHook<DXGISwapChainResizeBuffersType>> m_dxgiSwapChainResizeBuffersHook;
+    std::unique_ptr<ApiHook<DXGISwapChainResizeTargetType>> m_dxgiSwapChainResizeTargetHook;
+    std::unique_ptr<ApiHook<DXGISwapChainPresent1Type>> m_dxgiSwapChainPresent1Hook;
+};
+
+dxgi_hook* dxgi_hook::instance()
+{
+    static dxgi_hook this_instance;
+    return &this_instance;
+}
+
+dxgi_hook::~dxgi_hook()
+{
+}
+
+bool dxgi_hook::init()
+{
+    if (d3d11_method_table::instance()->init())
+    {
+        auto target8 = (*d3d11_method_table::instance())[8];
+        m_dxgiSwapChainPresentHook.reset(new ApiHook<DXGISwapChainPresentType>(L"DXGISwapChainPresentType",
+            target8, (DWORD_PTR *)SwapChainPresent));
+        m_dxgiSwapChainPresentHook->activeHook();
+
+        auto target13 = (*d3d11_method_table::instance())[13];
+        m_dxgiSwapChainResizeBuffersHook.reset(new ApiHook<DXGISwapChainResizeBuffersType>(L"DXGISwapChainResizeBuffersType",
+            target13, (DWORD_PTR *)SwapChainResizeBuffers));
+        m_dxgiSwapChainResizeBuffersHook->activeHook();
+
+        auto target14 = (*d3d11_method_table::instance())[14];
+        m_dxgiSwapChainResizeTargetHook.reset(new ApiHook<DXGISwapChainResizeTargetType>(L"DXGISwapChainReiszeTargetType",
+            target14, (DWORD_PTR *)SwapChainResizeTarget));
+        m_dxgiSwapChainResizeTargetHook->activeHook();
+
+        auto target_present1 = d3d11_method_table::instance()->swapchain_present1();
+        if (target_present1)
+        {
+            m_dxgiSwapChainPresent1Hook.reset(new ApiHook<DXGISwapChainPresent1Type>(L"DXGISwapChainPresent1Type",
+                target_present1, (DWORD_PTR *)SwapChainPresent1));
+            m_dxgiSwapChainPresent1Hook->activeHook();
+        }
+
+        LOG << "d3d11_method_table enabled\n";
+
+        return true;
+    }
+    else if (d3d10_method_table::instance()->init())
+    {
+        auto target8 = (*d3d10_method_table::instance())[8];
+        m_dxgiSwapChainPresentHook.reset(new ApiHook<DXGISwapChainPresentType>(L"DXGISwapChainPresentType",
+            target8, (DWORD_PTR *)SwapChainPresent));
+        m_dxgiSwapChainPresentHook->activeHook();
+
+        auto target13 = (*d3d10_method_table::instance())[13];
+        m_dxgiSwapChainResizeBuffersHook.reset(new ApiHook<DXGISwapChainResizeBuffersType>(L"DXGISwapChainResizeBuffersType",
+            target13, (DWORD_PTR *)SwapChainResizeBuffers));
+        m_dxgiSwapChainResizeBuffersHook->activeHook();
+
+        auto target14 = (*d3d10_method_table::instance())[14];
+        m_dxgiSwapChainResizeTargetHook.reset(new ApiHook<DXGISwapChainResizeTargetType>(L"DXGISwapChainReiszeTargetType",
+            target14, (DWORD_PTR *)SwapChainResizeTarget));
+        m_dxgiSwapChainResizeTargetHook->activeHook();
+
+        LOG << "d3d10_method_table enabled\n";
+
+        return true;
+    }
+
+    return false;
+}
+
+void dxgi_hook::deinit()
+{
+    if (m_dxgiSwapChainPresentHook)
+    {
+        m_dxgiSwapChainPresentHook.reset(nullptr);
+    }
+    if (m_dxgiSwapChainResizeBuffersHook)
+    {
+        m_dxgiSwapChainResizeBuffersHook.reset(nullptr);
+    }
+    if (m_dxgiSwapChainResizeTargetHook)
+    {
+        m_dxgiSwapChainResizeTargetHook.reset(nullptr);
+    }
+    if (m_dxgiSwapChainPresent1Hook)
+    {
+        m_dxgiSwapChainPresent1Hook.reset(nullptr);
+    }
+}
+
+HRESULT dxgi_hook::SwapChainPresent(IDXGISwapChain *p, UINT a, UINT b)
+{
+    return dxgi_hook::instance()->present_hook(p, a, b);
+}
+
+HRESULT dxgi_hook::SwapChainResizeBuffers(IDXGISwapChain *p, UINT a, UINT b, UINT c, DXGI_FORMAT d, UINT e)
+{
+    return dxgi_hook::instance()->resize_buffers_hook(p, a, b, c, d, e);
+}
+
+HRESULT dxgi_hook::SwapChainResizeTarget(IDXGISwapChain *p, const DXGI_MODE_DESC *a)
+{
+    return dxgi_hook::instance()->resize_target_hook(p, a);
+}
+
+HRESULT dxgi_hook::SwapChainPresent1(IDXGISwapChain1 *p, UINT a, UINT b, const DXGI_PRESENT_PARAMETERS *c)
+{
+    return dxgi_hook::instance()->present1_hook(p, a, b, c);
+}
+
+HRESULT dxgi_hook::present_hook(IDXGISwapChain *pSwapChain, UINT SyncInterval, UINT Flags)
+{
+    // do someting
+    // ...
+    hookD3D11Present(pSwapChain, SyncInterval, Flags);
+
+    HRESULT hr =  m_dxgiSwapChainPresentHook->callOrginal<HRESULT>(pSwapChain, SyncInterval, Flags);
+
+    if (FAILED(hr))
+    {
+        LOG << "dxgi_hook::present_hook: " << hr << "\n";
+        if (hr == DXGI_ERROR_DEVICE_REMOVED)
+        {
+            ID3D11Device* pd3d11dev;
+            if (SUCCEEDED(pSwapChain->GetDevice(__uuidof(ID3D11Device), (void**)&pd3d11dev)))
+            {
+                hr = pd3d11dev->GetDeviceRemovedReason();
+                LOG << "dxgi_hook::present_hook: GetDeviceRemovedReason: " << hr << "\n";
+                pd3d11dev->Release();
+            }
+        }
+    }
+
+    // do something
+    // ...
+
+    return hr;
+}
+
+HRESULT dxgi_hook::present1_hook(IDXGISwapChain1 *pSwapChain, UINT SyncInterval, UINT PresentFlags, const DXGI_PRESENT_PARAMETERS *pPresentParameters)
+{
+    // do someting
+    // ...
+
+    HRESULT hr = m_dxgiSwapChainPresent1Hook->callOrginal<HRESULT>(pSwapChain, SyncInterval, PresentFlags, pPresentParameters);
+
+    if (FAILED(hr))
+    {
+        LOG << "dxgi_hook::present_hook: " << hr << "\n";
+        if (hr == DXGI_ERROR_DEVICE_REMOVED)
+        {
+            ID3D11Device* pd3d11dev;
+            if (SUCCEEDED(pSwapChain->GetDevice(__uuidof(ID3D11Device), (void**)&pd3d11dev)))
+            {
+                hr = pd3d11dev->GetDeviceRemovedReason();
+                LOG << "dxgi_hook::present_hook: GetDeviceRemovedReason: " << hr << "\n";
+                pd3d11dev->Release();
+            }
+        }
+    }
+
+    // do something
+    // ...
+
+    return hr;
+}
+
+HRESULT dxgi_hook::resize_buffers_hook(IDXGISwapChain *pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT SwapChainFlags)
+{
+    // do something
+    // ...
+    LOG << "dxgi_hook::resize_buffers_hook\n";
+
+    return m_dxgiSwapChainResizeBuffersHook->callOrginal<HRESULT>(pSwapChain, BufferCount, Width, Height, NewFormat, SwapChainFlags);
+}
+
+HRESULT dxgi_hook::resize_target_hook(IDXGISwapChain *pSwapChain, const DXGI_MODE_DESC *pNewTargetParameters)
+{
+    // do something
+    // ...
+    LOG << "dxgi_hook::resize_target_hook\n";
+
+    return m_dxgiSwapChainResizeTargetHook->callOrginal<HRESULT>(pSwapChain, pNewTargetParameters);
+}
+
+
+
 
 #include <mutex>
 #include <thread>
@@ -1333,7 +1557,10 @@ void dll_hook_thread::_event_loop(void)
     LOG << ">>> Enter _event_loop\n";
 
     MH_Initialize();
-    HookD3D(0);
+    if (!dxgi_hook::instance()->init())
+    {
+        HookD3D(0);
+    }
 
     const DWORD dueTime = 1000;
     const DWORD period = 5000;
@@ -1381,11 +1608,7 @@ void dll_hook_thread::_event_loop(void)
     DeleteTimerQueueTimer(m_timer_queue, m_timer, INVALID_HANDLE_VALUE);
     DeleteTimerQueue(m_timer_queue);
 
-    if (g_dxgiSwapChainPresentHook)
-    {
-        g_dxgiSwapChainPresentHook.reset(nullptr);
-    }
-
+    dxgi_hook::instance()->deinit();
     MH_Uninitialize();
 
     LOG << "<<< Exit _event_loop\n";

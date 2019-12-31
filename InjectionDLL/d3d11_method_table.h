@@ -17,7 +17,9 @@ public:
     void unbind(uint16_t index);
 
     DWORD_PTR* operator[] (int index);
+    DWORD_PTR* swapchain_present1();
 
 private:
     DWORD_PTR* m_methodsTable = nullptr;
+    DWORD_PTR* m_swapchain_present1 = nullptr;
 };

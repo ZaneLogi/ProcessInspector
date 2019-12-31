@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include <dxgi.h>
 #include <d3d11.h>
+#include <dxgi1_2.h>
 #include <cassert>
 #include "Logger.h"
 #include "d3d11_method_table.h"
@@ -113,6 +114,14 @@ bool d3d11_method_table::init()
     ::memcpy(m_methodsTable + 18, *(DWORD_PTR**)device, 43 * sizeof(DWORD_PTR));
     ::memcpy(m_methodsTable + 18 + 43, *(DWORD_PTR**)context, 144 * sizeof(DWORD_PTR));
 
+    IDXGISwapChain1* swapChain1;
+    if (SUCCEEDED(swapChain->QueryInterface(__uuidof(IDXGISwapChain1), (void **)&swapChain1)))
+    {
+        ::memcpy(&m_swapchain_present1, (*(DWORD_PTR**)swapChain1) + 22, sizeof(DWORD_PTR));
+        swapChain1->Release();
+        swapChain1 = NULL;
+    }
+
     swapChain->Release();
     swapChain = NULL;
 
@@ -157,4 +166,9 @@ void d3d11_method_table::unbind(uint16_t index)
 DWORD_PTR* d3d11_method_table::operator[] (int index)
 {
     return (DWORD_PTR*)m_methodsTable[index];
+}
+
+DWORD_PTR* d3d11_method_table::swapchain_present1()
+{
+    return m_swapchain_present1;
 }
