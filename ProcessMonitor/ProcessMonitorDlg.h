@@ -53,6 +53,7 @@ protected:
 
     void InitProcessListControl();
     void Log(LPCTSTR lpszFormat, ...);
+    void LoadAppList();
 
 private:
     std::vector<application_info> m_process_id_list;

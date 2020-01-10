@@ -6,7 +6,13 @@
 #include "ProcessMonitor.h"
 #include "ProcessMonitorDlg.h"
 #include "afxdialogex.h"
+#include <fstream>
+#include <sstream>
+#include <regex>
 #include <algorithm>
+#include <locale>
+#include <codecvt>
+#include <string>
 #include <psapi.h>
 
 #ifdef _DEBUG
@@ -155,6 +161,8 @@ BOOL CProcessMonitorDlg::OnInitDialog()
     CString s = t.Format(_T("%F %T"));
     Log(_T("%s\r\n"), s);
 
+    LoadAppList();
+
     enable_privilege(TRUE);
 
     m_server.set_main_window(GetSafeHwnd());
@@ -228,6 +236,65 @@ void CProcessMonitorDlg::Log(LPCTSTR lpszFormat, ...)
     else
     {
         OutputDebugString(_T("###Cannot create a debugging string###"));
+    }
+}
+
+
+std::vector<std::wstring> g_app_list;
+
+inline bool to_bool(const std::string &value)
+{
+    std::string tmp = value;
+    std::transform(tmp.begin(), tmp.end(), tmp.begin(), ::tolower);
+    return (tmp == "true") || (tmp == "1") || (tmp == "yes") || (tmp == "on");
+}
+
+/*
+std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+std::string narrow = converter.to_bytes(wide_utf16_source_string);
+std::wstring wide = converter.from_bytes(narrow_utf8_source_string);
+*/
+
+void CProcessMonitorDlg::LoadAppList()
+{
+    std::ifstream file("applist.ini", std::ios_base::in);
+    std::vector<char> file_content;
+    if (file.is_open())
+    {
+        file.seekg(0, std::ios_base::end);
+        file_content.resize((size_t)file.tellg());
+        file.seekg(0);
+        file.read(file_content.data(), file_content.size());
+        file.close();
+    }
+
+    std::istringstream stream(file_content.data());
+
+    const std::string s_features_regex = R"(([a-z0-9]+[a-z0-9 ._]*[a-z0-9]+)\s*=\s*(0|1|false|true|off|on|yes|no)\s*)";
+    // Use https://regexr.com/ to help debug regex strings.
+    std::regex expression(s_features_regex, std::regex_constants::icase);
+
+    std::string line;
+    while (std::getline(stream, line))
+    {
+        std::smatch match;
+        if (std::regex_match(line, match, expression))
+        {
+            std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+            auto candidate = converter.from_bytes(match[1]);
+            auto i = std::find(g_app_list.begin(), g_app_list.end(), candidate);
+            auto add = to_bool(match[2]);
+            if ( add && i == g_app_list.end())
+            {
+                // not in the list, add it
+                g_app_list.push_back(candidate);
+            }
+            else if (!add && i != g_app_list.end())
+            {
+                // in the list, remove it
+                g_app_list.erase(i);
+            }
+        }
     }
 }
 
@@ -380,13 +447,20 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
                     Log(_T("Process %d, Name %s has d3d11.dll\r\n"), process_id, info.path.c_str());
                     const auto targets =
                     {
-                        L"D3D11Application.exe",
-                        L"D3DApp.exe"
+                        L"D3D11APPLICATION",
+                        L"D3DAPP",
+                        L"WOW"
                     };
-                    auto found_itr = std::find_if(targets.begin(), targets.end(),
-                        [&info](const auto& i) { return wcsstr(info.path.c_str(), i) != nullptr; });
 
-                    if (found_itr != targets.end())
+                    auto test = info.path;
+                    std::transform(test.begin(), test.end(), test.begin(), ::toupper);
+                    auto found_itr = std::find_if(targets.begin(), targets.end(),
+                        [&test](const auto& i) { return wcsstr(test.c_str(), i) != nullptr; });
+
+                    auto found_itr2 = std::find_if(g_app_list.begin(), g_app_list.end(),
+                        [&test](const auto& i) {return wcsstr(test.c_str(), i.c_str()) != nullptr; });
+
+                    if (found_itr != targets.end() || found_itr2 != g_app_list.end())
                     {
                         TCHAR command_line[MAX_PATH];
                         if (iswow64)
@@ -399,6 +473,8 @@ LRESULT CProcessMonitorDlg::OnApplicationEvent(WPARAM wParam, LPARAM lParam)
                         }
 
                         TRACE(_T("CreatProcess(%s)\n"), command_line);
+
+                        Log(_T("%s: %s\r\n"), *found_itr, command_line);
 
                         STARTUPINFO si;
                         PROCESS_INFORMATION pi;
