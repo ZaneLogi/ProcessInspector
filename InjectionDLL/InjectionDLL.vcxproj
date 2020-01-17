@@ -224,6 +224,8 @@ copy $(TargetPath) %remote% /Y
     <ClInclude Include="d3d10_method_table.h" />
     <ClInclude Include="d3d11_method_table.h" />
     <ClInclude Include="d3d9_method_table.h" />
+    <ClInclude Include="dll_hook_thread.h" />
+    <ClInclude Include="dxgi_hook.h" />
     <ClInclude Include="kiero.h" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="MsgHookProc.h" />
@@ -254,6 +256,8 @@ copy $(TargetPath) %remote% /Y
     </ClCompile>
     <ClCompile Include="dllmain_d3d.cpp" />
     <ClCompile Include="dllmain_kiero.cpp" />
+    <ClCompile Include="dll_hook_thread.cpp" />
+    <ClCompile Include="dxgi_hook.cpp" />
     <ClCompile Include="kiero.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="MsgHookProc.cpp" />

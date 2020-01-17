@@ -60,6 +60,12 @@
     <ClInclude Include="server_connection.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="dll_hook_thread.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dxgi_hook.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -99,6 +105,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="d3d9_method_table.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dll_hook_thread.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dxgi_hook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

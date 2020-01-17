@@ -268,6 +268,9 @@ void CProcessMonitorDlg::LoadAppList()
         file.close();
     }
 
+    if (file_content.size() == 0)
+        return;
+
     std::istringstream stream(file_content.data());
 
     const std::string s_features_regex = R"(([a-z0-9]+[a-z0-9 ._]*[a-z0-9]+)\s*=\s*(0|1|false|true|off|on|yes|no)\s*)";
