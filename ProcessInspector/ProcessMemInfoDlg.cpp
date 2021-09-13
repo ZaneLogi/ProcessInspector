@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <string>
 
 
 const int ADDRESS_COLUMN = 0;
