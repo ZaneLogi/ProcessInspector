@@ -12,6 +12,44 @@ static char THIS_FILE[] = __FILE__;
 
 static UINT WM_FINDREPLACE = -1;
 
+bool CreateWin10Font(CWnd* pWnd, CFont* pFont)
+{
+    using fnGetDpiForWindow = UINT(WINAPI*)(HWND);
+
+    auto hinstLib = LoadLibrary(TEXT("user32.dll"));
+    if (hinstLib == nullptr)
+        return false;
+
+    auto myGetDpiForWindow = (fnGetDpiForWindow)GetProcAddress(hinstLib, "GetDpiForWindow");
+    if (myGetDpiForWindow == nullptr)
+        return false;
+
+    int iDpi = myGetDpiForWindow(pWnd->GetSafeHwnd());
+
+    CClientDC dc(pWnd);
+
+    static const int POINTS_PER_INCH = 72;
+    int points = 10;
+    int pixels_per_inch = GetDeviceCaps(dc.GetSafeHdc(), LOGPIXELSY);
+    int pixels_height = -MulDiv(points, pixels_per_inch, POINTS_PER_INCH);
+
+    pFont->CreateFont(
+        pixels_height, 0, // size
+        0, 0, // normal orientation
+        FW_NORMAL,   // normal weight--e.g., bold would be FW_BOLD
+        false, false, false, // not italic, underlined or strike out
+        DEFAULT_CHARSET,
+        OUT_OUTLINE_PRECIS, // select only outline (not bitmap) fonts
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY,
+        VARIABLE_PITCH | FF_SWISS,
+        _T("Courier"));
+
+    pWnd->SetFont(pFont);
+
+    return true;
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // CDumpControl
 
@@ -66,14 +104,24 @@ void CDumpControl::PreSubclassWindow()
 {
     // TODO: Add your specialized code here and/or call the base class
     CListCtrl::PreSubclassWindow();
-    ModifyStyle( LVS_TYPEMASK | LVS_SORTASCENDING | LVS_SORTDESCENDING | LVS_SINGLESEL,
-        LVS_REPORT | LVS_NOSORTHEADER | LVS_SHOWSELALWAYS );
+    ModifyStyle(LVS_TYPEMASK | LVS_SORTASCENDING | LVS_SORTDESCENDING | LVS_SINGLESEL,
+        LVS_REPORT | LVS_NOSORTHEADER | LVS_SHOWSELALWAYS);
 
-    SetExtendedStyle(LVS_EX_GRIDLINES|LVS_EX_INFOTIP|LVS_EX_FULLROWSELECT);
+    SetExtendedStyle(LVS_EX_GRIDLINES | LVS_EX_INFOTIP | LVS_EX_FULLROWSELECT);
+
+    InsertColumn(0, _T("Address"));
+    InsertColumn(1, _T("00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F"));
+    InsertColumn(2, _T("0123456789ABCDEF"));
+    InsertColumn(3, _T(""));
+
+    if (!CreateWin10Font(this, &m_font))
+    {
+        SetFont(CFont::FromHandle((HFONT)GetStockObject(ANSI_FIXED_FONT)), FALSE);
+    }
 
     CClientDC dc(this);
-    dc.SelectStockObject( ANSI_FIXED_FONT );
-    dc.GetTextMetrics( &m_tm );
+    dc.SelectObject(GetFont());
+    dc.GetTextMetrics(&m_tm);
 
     m_nHexPartUnitWidth = m_tm.tmMaxCharWidth * 3;
     m_nHexPartTextWidth = m_nHexPartUnitWidth * 16;
@@ -81,17 +129,10 @@ void CDumpControl::PreSubclassWindow()
     m_nAscPartUnitWidth = m_tm.tmMaxCharWidth;
     m_nAscPartTextWidth = m_nAscPartUnitWidth * 16;
 
-    InsertColumn( 0, _T("Address") );
-    InsertColumn( 1, _T("00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F") );
-    InsertColumn( 2, _T("0123456789ABCDEF") );
-    InsertColumn( 3, _T("") );
-
-    SetFont( CFont::FromHandle( (HFONT)GetStockObject(ANSI_FIXED_FONT) ), FALSE );
-
-    SetColumnWidth( 0, LVSCW_AUTOSIZE_USEHEADER );
-    SetColumnWidth( 1, LVSCW_AUTOSIZE_USEHEADER );
-    SetColumnWidth( 2, LVSCW_AUTOSIZE_USEHEADER );
-    SetColumnWidth( 3, LVSCW_AUTOSIZE_USEHEADER );
+    SetColumnWidth(0, LVSCW_AUTOSIZE_USEHEADER);
+    SetColumnWidth(1, LVSCW_AUTOSIZE_USEHEADER);
+    SetColumnWidth(2, LVSCW_AUTOSIZE_USEHEADER);
+    SetColumnWidth(3, LVSCW_AUTOSIZE_USEHEADER);
 
     RECT rcThis, rcHdr;
     GetWindowRect(&rcThis);

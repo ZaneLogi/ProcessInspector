@@ -229,6 +229,9 @@ protected:
         pDC->SetBkMode(m);
         return true;
     }
+
+private:
+    CFont m_font;
 };
 
 /////////////////////////////////////////////////////////////////////////////
