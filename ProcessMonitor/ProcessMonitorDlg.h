@@ -60,4 +60,6 @@ private:
     int m_focus_index = -1;
     demo_server m_server;
 
+    CFont m_font;
+
 };

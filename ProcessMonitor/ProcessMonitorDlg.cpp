@@ -49,6 +49,44 @@ BOOL IsWow64(HANDLE hProcess)
     return bIsWow64;
 }
 
+bool CreateWin10Font(CWnd* pWnd, CFont* pFont)
+{
+    using fnGetDpiForWindow = UINT(WINAPI*)(HWND);
+
+    auto hinstLib = LoadLibrary(TEXT("user32.dll"));
+    if (hinstLib == nullptr)
+        return false;
+
+    auto myGetDpiForWindow = (fnGetDpiForWindow)GetProcAddress(hinstLib, "GetDpiForWindow");
+    if (myGetDpiForWindow == nullptr)
+        return false;
+
+    int iDpi = myGetDpiForWindow(pWnd->GetSafeHwnd());
+
+    CClientDC dc(pWnd);
+
+    static const int POINTS_PER_INCH = 72;
+    int points = 10;
+    int pixels_per_inch = GetDeviceCaps(dc.GetSafeHdc(), LOGPIXELSY);
+    int pixels_height = -MulDiv(points, pixels_per_inch, POINTS_PER_INCH);
+
+    pFont->CreateFont(
+        pixels_height, 0, // size
+        0, 0, // normal orientation
+        FW_NORMAL,   // normal weight--e.g., bold would be FW_BOLD
+        false, false, false, // not italic, underlined or strike out
+        DEFAULT_CHARSET,
+        OUT_OUTLINE_PRECIS, // select only outline (not bitmap) fonts
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY,
+        VARIABLE_PITCH | FF_SWISS,
+        _T("Courier"));
+
+    pWnd->SetFont(pFont);
+
+    return true;
+}
+
 // CAboutDlg dialog used for App About
 
 class CAboutDlg : public CDialogEx
@@ -152,7 +190,10 @@ BOOL CProcessMonitorDlg::OnInitDialog()
     OBJ_DEFINE_BOTTOM_RIGHT(IDCANCEL);
     END_OBJ_MAP();
 
-    m_ecLog.SetFont(CFont::FromHandle((HFONT)::GetStockObject(ANSI_FIXED_FONT)));
+    if (!CreateWin10Font(&m_ecLog, &m_font))
+    {
+        m_ecLog.SetFont(CFont::FromHandle((HFONT)::GetStockObject(ANSI_FIXED_FONT)));
+    }
 
     InitProcessListControl();
     process_watcher::instance()->set_window_handle(GetSafeHwnd(), APPLICATION_EVENT_MSG);
