@@ -25,6 +25,8 @@ dll_hook_thread::~dll_hook_thread()
 
 void dll_hook_thread::start()
 {
+    // std::thread cause deadlock in DLLMain
+    // https://stackoverflow.com/questions/32252143/stdthread-cause-deadlock-in-dllmain
     const std::lock_guard<std::mutex> lock(m_mutex);
     LOG << "START dll hook thread.\n";
     m_thread_handle = CreateThread(nullptr, 0, _thread_routine, this, 0, &m_thread_id);
@@ -110,6 +112,7 @@ void dll_hook_thread::_event_loop(void)
                 TranslateMessage(&message);
                 DispatchMessage(&message);
             }
+            break;
 
         default:
             break;
