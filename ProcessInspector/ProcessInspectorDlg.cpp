@@ -10,6 +10,7 @@
 #include "ProcessInspectorDlg.h"
 #include "afxdialogex.h"
 #include "ProcessMemInfoDlg.h"
+#include "MultiMonitors.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -225,6 +226,8 @@ BOOL CProcessInspectorDlg::OnInitDialog()
     BEGIN_OBJ_MAP(CProcessInspectorDlg);
     OBJ_DEFINE(IDC_PROCESS_LIST, 0, 100, 0, 100);
     END_OBJ_MAP();
+
+    ClipOrCenterWindowToMonitor(GetSafeHwnd(), MONITOR_CLIP | MONITOR_WORKAREA);
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }

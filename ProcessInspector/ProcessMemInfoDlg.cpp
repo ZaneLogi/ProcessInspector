@@ -6,6 +6,7 @@
 #include "ProcessMemInfoDlg.h"
 #include "MemoryDlg.h"
 #include "afxdialogex.h"
+#include "MultiMonitors.h"
 
 #include <vector>
 #include <algorithm>
@@ -18,78 +19,6 @@ const int PROTECT_COLUMN = 2;
 const int TYPE_COLUMN = 3;
 const int SIZE_COLUMN = 4;
 const int BASE_COLUMN = 5;
-
-
-
-
-#define MONITOR_CENTER   0x0001        // center rect to monitor
-#define MONITOR_CLIP     0x0000        // clip rect to monitor
-#define MONITOR_WORKAREA 0x0002        // use monitor work area
-#define MONITOR_AREA     0x0000        // use monitor entire area
-
-//
-//  ClipOrCenterRectToMonitor
-//
-//  The most common problem apps have when running on a
-//  multimonitor system is that they "clip" or "pin" windows
-//  based on the SM_CXSCREEN and SM_CYSCREEN system metrics.
-//  Because of app compatibility reasons these system metrics
-//  return the size of the primary monitor.
-//
-//  This shows how you use the multi-monitor functions
-//  to do the same thing.
-//
-void ClipOrCenterRectToMonitor(LPRECT prc, UINT flags)
-{
-    HMONITOR hMonitor;
-    MONITORINFO mi;
-    RECT        rc;
-    int         w = prc->right - prc->left;
-    int         h = prc->bottom - prc->top;
-
-    //
-    // get the nearest monitor to the passed rect.
-    //
-    hMonitor = MonitorFromRect(prc, MONITOR_DEFAULTTONEAREST);
-
-    //
-    // get the work area or entire monitor rect.
-    //
-    mi.cbSize = sizeof(mi);
-    GetMonitorInfo(hMonitor, &mi);
-
-    if (flags & MONITOR_WORKAREA)
-        rc = mi.rcWork;
-    else
-        rc = mi.rcMonitor;
-
-    //
-    // center or clip the passed rect to the monitor rect
-    //
-    if (flags & MONITOR_CENTER)
-    {
-        prc->left = rc.left + (rc.right - rc.left - w) / 2;
-        prc->top = rc.top + (rc.bottom - rc.top - h) / 2;
-        prc->right = prc->left + w;
-        prc->bottom = prc->top + h;
-    }
-    else
-    {
-        prc->left = max(rc.left, min(rc.right - w, prc->left));
-        prc->top = max(rc.top, min(rc.bottom - h, prc->top));
-        prc->right = prc->left + w;
-        prc->bottom = prc->top + h;
-    }
-}
-
-void ClipOrCenterWindowToMonitor(HWND hwnd, UINT flags)
-{
-    RECT rc;
-    GetWindowRect(hwnd, &rc);
-    ClipOrCenterRectToMonitor(&rc, flags);
-    SetWindowPos(hwnd, NULL, rc.left, rc.top, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
-}
-
 
 
 template <class InIter1, class InIter2>
@@ -274,6 +203,7 @@ BEGIN_MESSAGE_MAP(CProcessMemInfoDlg, CDialogEx)
     ON_BN_CLICKED(IDOK, &CProcessMemInfoDlg::OnBnClickedOk)
     ON_BN_CLICKED(IDCANCEL, &CProcessMemInfoDlg::OnBnClickedCancel)
     ON_NOTIFY(NM_DBLCLK, IDC_MEM_INFO_LIST, &CProcessMemInfoDlg::OnDblclkMemInfoList)
+    ON_BN_CLICKED(IDC_BUTTON_GO, &CProcessMemInfoDlg::OnBnClickedButtonGo)
 END_MESSAGE_MAP()
 
 
@@ -427,6 +357,9 @@ BOOL CProcessMemInfoDlg::OnInitDialog()
 
     BEGIN_OBJ_MAP(CProcessMemInfoDlg);
     OBJ_DEFINE(IDC_MEM_INFO_LIST, 0, 100, 0, 100);
+    OBJ_DEFINE(IDC_STATIC_FIND_ADDRESS, 100, 100, 100, 100);
+    OBJ_DEFINE(IDC_EDIT_ADDRESS, 100, 100, 100, 100);
+    OBJ_DEFINE(IDC_BUTTON_GO, 100, 100, 100, 100);
     END_OBJ_MAP();
 
     ClipOrCenterWindowToMonitor(GetSafeHwnd(), MONITOR_CLIP);
@@ -466,6 +399,43 @@ void CProcessMemInfoDlg::OnDblclkMemInfoList(NMHDR *pNMHDR, LRESULT *pResult)
     CString s = m_lcMemInfo.GetItemText(iItem, ADDRESS_COLUMN);
     PTCHAR  endPtr;
     auto address = _tcstoull(s, &endPtr, 16);
+
+    CMemoryDlg dlg(m_processName, m_processId, address);
+    dlg.DoModal();
+}
+
+
+void CProcessMemInfoDlg::OnBnClickedButtonGo()
+{
+    auto editCtrl = GetDlgItem(IDC_EDIT_ADDRESS);
+    CString addressText;
+    editCtrl->GetWindowText(addressText);
+
+    bool valid = true;
+    for (int i = 0; i < addressText.GetLength(); i++)
+    {
+        if (!_istxdigit(addressText[i]))
+        {
+            valid = false;
+            break;
+        }
+    }
+
+    if (!valid)
+    {
+        AfxMessageBox(_T("Invalid Address"));
+        return;
+    }
+
+    int length = addressText.GetLength();
+    if (length > 16)
+    {
+        AfxMessageBox(_T("Invalid Address"));
+        return;
+    }
+
+    PTCHAR  endPtr;
+    auto address = _tcstoull(addressText, &endPtr, 16);
 
     CMemoryDlg dlg(m_processName, m_processId, address);
     dlg.DoModal();

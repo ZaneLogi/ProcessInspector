@@ -198,6 +198,7 @@
     <ClInclude Include="DynObj.h" />
     <ClInclude Include="HexString.h" />
     <ClInclude Include="MemoryDlg.h" />
+    <ClInclude Include="MultiMonitors.h" />
     <ClInclude Include="ProcessInspector.h" />
     <ClInclude Include="ProcessInspectorDlg.h" />
     <ClInclude Include="ProcessMemInfoDlg.h" />
@@ -210,6 +211,7 @@
     <ClCompile Include="DumpControl.cpp" />
     <ClCompile Include="HexString.cpp" />
     <ClCompile Include="MemoryDlg.cpp" />
+    <ClCompile Include="MultiMonitors.cpp" />
     <ClCompile Include="ProcessInspector.cpp" />
     <ClCompile Include="ProcessInspectorDlg.cpp" />
     <ClCompile Include="ProcessMemInfoDlg.cpp" />
