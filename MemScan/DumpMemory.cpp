@@ -28,6 +28,15 @@ void DumpMemory(HANDLE hProcess, const std::string& dump, const std::string& dum
         buffer.resize(bytes_read);
 
         std::ofstream file(memscan_memory_dumpfile, std::ios_base::out);
+
+        char exeName[MAX_PATH];
+        DWORD nameSize = MAX_PATH;
+        bool b = QueryFullProcessImageNameA(hProcess, 0, exeName, &nameSize);
+        if (b)
+        {
+            file << "Process Name: " << exeName << "\n";
+        }
+
         auto current = buffer.data() + (address - (uint64_t)mbi.BaseAddress);
         while (size > 0)
         {

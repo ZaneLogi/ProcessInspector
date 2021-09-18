@@ -15,6 +15,8 @@ void DumpMemory(HANDLE hProcess, const std::string& dump, const std::string& dum
 
 void FindAndReplace(HANDLE hProcess, const std::string& find, const std::string& replace);
 
+void SetAddressHexValues(HANDLE hProcess, const std::string& address, const std::string& hex_string);
+
 
 DWORD FindProcessId(const std::string& process_name)
 {
@@ -90,6 +92,9 @@ memscan process=xxx init=12 type=int8
 memscan process=xxx next=32 type=int8
 
 memscan dump=000123456 size=0x200
+
+Set hex values on the specific address
+memscan process=xxx address=01234567 set=0011223344
 */
 int main(int argc, char** argv)
 {
@@ -103,6 +108,8 @@ int main(int argc, char** argv)
     auto type = cl.get_value("type");
     auto dump = cl.get_value("dump");
     auto dump_size = cl.get_value("size");
+    auto address = cl.get_value("address");
+    auto hex_string = cl.get_value("set");
 
     DWORD target_pid = 0;
     if (!process_name.empty())
@@ -125,10 +132,11 @@ int main(int argc, char** argv)
         if (!init_value.empty() || !next_value.empty() || !dump.empty())
         {
             replace.clear(); // no replacement
+            address.clear();
         }
 
         DWORD dwDesiredAccess = PROCESS_VM_READ | PROCESS_QUERY_INFORMATION;
-        if (!replace.empty())
+        if (!replace.empty() || !address.empty())
         {
             dwDesiredAccess = PROCESS_ALL_ACCESS;
         }
@@ -159,6 +167,10 @@ int main(int argc, char** argv)
         else if (!find.empty())
         {
             FindAndReplace(hProcess, find, replace);
+        }
+        else if (!address.empty())
+        {
+            SetAddressHexValues(hProcess, address, hex_string);
         }
         else
         {

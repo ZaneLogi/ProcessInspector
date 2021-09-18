@@ -87,6 +87,14 @@ void InitSearch(HANDLE hProcess, const std::string& init_value, const std::strin
     std::ofstream init_log(memscan_init_logfile, std::ios_base::out);
     std::ofstream file(memscan_database_file, std::ios_base::binary | std::ios_base::out);
 
+    char exeName[MAX_PATH];
+    DWORD nameSize = MAX_PATH;
+    bool b = QueryFullProcessImageNameA(hProcess, 0, exeName, &nameSize);
+    if (b)
+    {
+        init_log << "Process Name: " << exeName << "\n";
+    }
+
     auto pattern = get_pattern(init_value, type);
 
     SYSTEM_INFO sys_info;
@@ -146,6 +154,15 @@ void InitSearch(HANDLE hProcess, const std::string& init_value, const std::strin
 void NextSearch(HANDLE hProcess, const std::string& next_value, const std::string& type)
 {
     std::ofstream next_log(memscan_next_logfile, std::ios_base::out);
+
+    char exeName[MAX_PATH];
+    DWORD nameSize = MAX_PATH;
+    bool b = QueryFullProcessImageNameA(hProcess, 0, exeName, &nameSize);
+    if (b)
+    {
+        next_log << "Process Name: " << exeName << "\n";
+    }
+
     auto pattern = get_pattern(next_value, type);
 
     // read in the previous data
